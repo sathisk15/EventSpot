@@ -5,7 +5,8 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { AuthContext } from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
-import { saveEvent } from '../services/eventService';
+import EventDetailModal from '../components/EventDetailModal';
+import { saveEvent, fetchEvents } from '../services/eventService';
 
 const MapScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -17,6 +18,11 @@ const MapScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [isRecentering, setIsRecentering] = useState(false);
   
+  // Events state
+  const [events, setEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -31,51 +37,73 @@ const MapScreen = ({ navigation }) => {
   const [selectedLocation, setSelectedLocation] = useState(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setErrorMsg('Permission to access location was denied');
-          Alert.alert('Permission Denied', 'EventSpot requires location access to find events near you.');
-          setLoading(false);
-          return;
-        }
-
-        const enabled = await Location.hasServicesEnabledAsync();
-        if (!enabled) {
-          setErrorMsg('Location services are disabled');
-          setLoading(false);
-          return;
-        }
-
-        let currentLocation;
-        try {
-          currentLocation = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-        } catch (e) {
-          console.log("getCurrentPositionAsync failed, trying LastKnown...");
-          currentLocation = await Location.getLastKnownPositionAsync({});
-        }
-        
-        if (currentLocation) {
-          const loc = {
-            latitude: currentLocation.coords.latitude,
-            longitude: currentLocation.coords.longitude,
-          };
-          setLocation(loc);
-          setSelectedLocation({ ...loc, address: 'Your Current Location' });
-        } else {
-          setErrorMsg('Waiting for precision location...');
-        }
-      } catch (error) {
-        console.error("Location error:", error);
-        setErrorMsg('Error fetching location');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch Location
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMsg('Permission to access location was denied');
+        setLoading(false);
+        return;
+      }
+
+      const enabled = await Location.hasServicesEnabledAsync();
+      if (!enabled) {
+        setErrorMsg('Location services are disabled');
+        setLoading(false);
+        return;
+      }
+
+      let currentLocation;
+      try {
+        currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      } catch (e) {
+        currentLocation = await Location.getLastKnownPositionAsync({});
+      }
+      
+      if (currentLocation) {
+        const loc = {
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        };
+        setLocation(loc);
+        setSelectedLocation({ ...loc, address: 'Your Current Location' });
+      }
+
+      // 2. Fetch Events
+      const fetchedEvents = await fetchEvents();
+      setEvents(fetchedEvents);
+
+    } catch (error) {
+      console.error("Initialization error:", error);
+      setErrorMsg('Error initializing map data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshEvents = async () => {
+    try {
+      const fetchedEvents = await fetchEvents();
+      setEvents(fetchedEvents);
+      
+      // Update the Leaflet map with new events
+      if (webViewRef.current) {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'SET_EVENTS',
+          events: fetchedEvents
+        }));
+      }
+    } catch (error) {
+      console.error("Refresh events error:", error);
+    }
+  };
 
   const handleSearch = async (query) => {
     if (!query) return;
@@ -83,21 +111,16 @@ const MapScreen = ({ navigation }) => {
     setShowResults(true);
     try {
       console.log("Searching Nominatim for:", query);
-      // Nominatim Search (OpenStreetMap) - Free & No Key needed
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'EventSpotApp/1.0',
-          }
-        }
+        { headers: { 'User-Agent': 'EventSpotApp/1.0' } }
       );
       console.log("Nominatim response status:", response.status);
       const data = await response.json();
       setSearchResults(data);
     } catch (error) {
       console.error("Search fetch failed:", error);
-      Alert.alert('Search Error', `Network request failed. Please check your internet connection. (Error: ${error.message})`);
+      Alert.alert('Search Error', `Network request failed. Please check your internet connection.`);
     } finally {
       setSearchLoading(false);
     }
@@ -116,7 +139,6 @@ const MapScreen = ({ navigation }) => {
     setSearchQuery(item.display_name);
     Keyboard.dismiss();
 
-    // Update Map
     if (webViewRef.current) {
       webViewRef.current.postMessage(JSON.stringify({
         type: 'UPDATE_LOCATION',
@@ -160,7 +182,7 @@ const MapScreen = ({ navigation }) => {
       await saveEvent(eventData);
       Alert.alert('Success', 'Event created successfully!');
       setModalVisible(false);
-      // Fetch events or update UI here later
+      await refreshEvents();
     } catch (error) {
       console.error(error);
       throw error;
@@ -168,16 +190,12 @@ const MapScreen = ({ navigation }) => {
   };
 
   const getInitials = () => {
-    if (user?.displayName) {
-      return user.displayName.charAt(0).toUpperCase();
-    }
-    if (user?.email) {
-      return user.email.charAt(0).toUpperCase();
-    }
+    if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
+    if (user?.email) return user.email.charAt(0).toUpperCase();
     return 'U';
   };
 
-  // Leaflet HTML with OpenStreetMap Tiles (100% Free, No Keys)
+  // Leaflet HTML with OpenStreetMap Tiles
   const mapHtml = `
     <!DOCTYPE html>
     <html>
@@ -190,72 +208,149 @@ const MapScreen = ({ navigation }) => {
           #map { height: 100vh; width: 100vw; }
           .leaflet-control-attribution { display: none; }
           
-          .user-location-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+          /* User Location Icon */
+          .user-location-icon .target-dot {
+            width: 14px; height: 14px; background-color: ${theme.colors.primary};
+            border: 3px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3); z-index: 2;
           }
-          
-          .target-dot {
-            width: 14px;
-            height: 14px;
-            background-color: ${theme.colors.primary};
-            border: 3px solid white;
-            border-radius: 50%;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            z-index: 2;
+          .user-location-icon .pulse {
+            position: absolute; width: 30px; height: 30px; background-color: ${theme.colors.primary};
+            opacity: 0.4; border-radius: 50%; animation: pulse-animation 2s infinite ease-out; z-index: 1;
           }
-          
-          .pulse {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            background-color: ${theme.colors.primary};
-            opacity: 0.4;
-            border-radius: 50%;
-            animation: pulse-animation 2s infinite ease-out;
-            z-index: 1;
-          }
-          
           @keyframes pulse-animation {
             0% { transform: scale(0.5); opacity: 0.8; }
             100% { transform: scale(3); opacity: 0; }
+          }
+
+          /* High-End Photo-Pin Design */
+          .event-pin {
+            display: flex; flex-direction: column; align-items: center;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+            animation: float-pin 3s ease-in-out infinite;
+          }
+          
+          @keyframes float-pin {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+          }
+
+          .pin-head {
+            width: 42px; height: 42px;
+            border-radius: 50% 50% 50% 5px;
+            background: white;
+            padding: 3px;
+            display: flex; align-items: center; justify-content: center;
+            transform: rotate(-45deg);
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+          }
+          
+          .pin-image {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-color: ${theme.colors.secondary};
+            transform: rotate(45deg);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 18px; font-weight: bold;
+            overflow: hidden;
+          }
+
+          .pin-image img {
+            width: 100%; height: 100%; object-fit: cover;
+          }
+          
+          .pin-tail {
+            width: 0; height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid white;
+            margin-top: -12px;
+            z-index: -1;
           }
         </style>
       </head>
       <body>
         <div id="map"></div>
         <script>
-          // Send console logs back to React Native for debugging
-          function log(msg) {
-             window.ReactNativeWebView.postMessage(JSON.stringify({type: 'LOG', msg: msg}));
+          function log(msg) { window.ReactNativeWebView.postMessage(JSON.stringify({type: 'LOG', msg: msg})); }
+          function sendEventClick(eventId) { 
+             window.ReactNativeWebView.postMessage(JSON.stringify({type: 'EVENT_CLICK', id: eventId})); 
           }
 
-          var map = L.map('map', {
-            zoomControl: false,
-            attributionControl: false
-          }).setView([${location?.latitude || 0}, ${location?.longitude || 0}], 15);
+          var map = L.map('map', { zoomControl: false, attributionControl: false })
+            .setView([${location?.latitude || 0}, ${location?.longitude || 0}], 15);
           
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-          }).addTo(map);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-          var modernIcon = L.divIcon({
+          // User Marker
+          var userIcon = L.divIcon({
             className: 'user-location-icon',
             html: '<div class="pulse"></div><div class="target-dot"></div>',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
+            iconSize: [30, 30], iconAnchor: [15, 15]
           });
+          var userMarker = L.marker([${location?.latitude || 0}, ${location?.longitude || 0}], { icon: userIcon }).addTo(map);
 
-          var userMarker = L.marker([${location?.latitude || 0}, ${location?.longitude || 0}], {
-            icon: modernIcon
-          }).addTo(map);
+          // Event Markers Group
+          var eventMarkersLayer = L.layerGroup().addTo(map);
+
+          function renderEvents(eventList) {
+            eventMarkersLayer.clearLayers();
+            eventList.forEach(function(ev) {
+              if (ev.location && ev.location.latitude) {
+                var imgHtml = ev.images && ev.images[0] ? '<img src="' + ev.images[0] + '" />' : '<span>' + ev.name.charAt(0) + '</span>';
+                
+                var pinHtml = '<div class="event-pin">' +
+                                '<div class="pin-head">' +
+                                  '<div class="pin-image">' + imgHtml + '</div>' +
+                                '</div>' +
+                              '</div>';
+
+                var pinIcon = L.divIcon({
+                  className: 'custom-leaflet-marker',
+                  html: pinHtml,
+                  iconSize: [44, 44], iconAnchor: [22, 44]
+                });
+                
+                var marker = L.marker([ev.location.latitude, ev.location.longitude], { icon: pinIcon })
+                  .addTo(eventMarkersLayer);
+                
+                marker.on('click', function() {
+                  sendEventClick(ev.id);
+                });
+              }
+            });
+          }
+
+          // Initial Render
+          renderEvents(${JSON.stringify(events)});
+
+          // Map Click Handler
+          var tempMarker;
+          map.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            
+            // Show a temporary "Drop Pin"
+            if (tempMarker) map.removeLayer(tempMarker);
+            tempMarker = L.marker([lat, lng], { opacity: 0.6 }).addTo(map);
+            
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'MAP_CLICK', 
+              lat: lat, 
+              lng: lng
+            }));
+          });
 
           window.addEventListener('message', function(event) {
             var data = JSON.parse(event.data);
             if (data.type === 'UPDATE_LOCATION') {
+              if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
               map.setView([data.lat, data.lng], 15);
               userMarker.setLatLng([data.lat, data.lng]);
+            } else if (data.type === 'SET_EVENTS') {
+              renderEvents(data.events);
             }
           });
         </script>
@@ -267,23 +362,11 @@ const MapScreen = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
         <Appbar.Content title="EventSpot" titleStyle={{ fontWeight: 'bold', color: theme.colors.primary }} />
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('Profile')}
-          style={styles.avatarContainer}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.avatarContainer}>
           {user?.photoURL ? (
-            <Avatar.Image
-              size={36}
-              source={{ uri: user.photoURL }}
-              style={{ backgroundColor: theme.colors.surfaceVariant }}
-            />
+            <Avatar.Image size={36} source={{ uri: user.photoURL }} />
           ) : (
-            <Avatar.Text 
-              size={36} 
-              label={getInitials()} 
-              style={{ backgroundColor: theme.colors.primary }}
-              color={theme.colors.onPrimary}
-            />
+            <Avatar.Text size={36} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
           )}
           <View style={styles.onlineIndicator} />
         </TouchableOpacity>
@@ -295,11 +378,7 @@ const MapScreen = ({ navigation }) => {
           onChangeText={setSearchQuery}
           value={searchQuery}
           onSubmitEditing={() => handleSearch(searchQuery)}
-          onClearIconPress={() => {
-            setSearchQuery('');
-            setSearchResults([]);
-            setShowResults(false);
-          }}
+          onClearIconPress={() => { setSearchQuery(''); setSearchResults([]); setShowResults(false); }}
           loading={searchLoading}
           style={styles.searchBar}
         />
@@ -310,7 +389,6 @@ const MapScreen = ({ navigation }) => {
                 <List.Item
                   key={index}
                   title={item.display_name}
-                  description={`${item.type || 'place'}`}
                   onPress={() => selectSearchResult(item)}
                   left={props => <List.Icon {...props} icon="map-marker" />}
                 />
@@ -324,12 +402,12 @@ const MapScreen = ({ navigation }) => {
         {loading ? (
           <View style={styles.centerBox}>
             <ActivityIndicator animating={true} color={theme.colors.primary} size="large" />
-            <Text style={{ marginTop: 10 }}>Finding your location...</Text>
+            <Text style={{ marginTop: 10 }}>Mapping your world...</Text>
           </View>
         ) : errorMsg ? (
           <View style={styles.centerBox}>
              <Text variant="titleMedium" style={{ color: theme.colors.error, textAlign: 'center', padding: 20 }}>{errorMsg}</Text>
-             <FAB icon="refresh" style={{ marginTop: 20 }} onPress={() => setLoading(true)} label="Retry" />
+             <FAB icon="refresh" style={{ marginTop: 20 }} onPress={loadInitialData} label="Retry" />
           </View>
         ) : location ? (
           <>
@@ -339,11 +417,23 @@ const MapScreen = ({ navigation }) => {
               source={{ html: mapHtml }}
               style={styles.map}
               javaScriptEnabled={true}
-              domStorageEnabled={true}
               onMessage={(event) => {
                 const data = JSON.parse(event.nativeEvent.data);
                 if (data.type === 'LOG') {
                   console.log("Leaflet Log:", data.msg);
+                } else if (data.type === 'EVENT_CLICK') {
+                  const ev = events.find(e => e.id === data.id);
+                  if (ev) {
+                    setSelectedEvent(ev);
+                    setDetailVisible(true);
+                  }
+                } else if (data.type === 'MAP_CLICK') {
+                  setSelectedLocation({
+                    latitude: data.lat,
+                    longitude: data.lng,
+                    address: 'Dropped Pin'
+                  });
+                  setModalVisible(true);
                 }
               }}
             />
@@ -354,23 +444,10 @@ const MapScreen = ({ navigation }) => {
                 visible={true}
                 icon={fabOpen ? 'close' : 'plus'}
                 actions={[
-                  {
-                    icon: 'calendar-plus',
-                    label: 'Add Event',
-                    onPress: () => setModalVisible(true),
-                  },
-                  {
-                    icon: 'crosshairs-gps',
-                    label: 'Recenter',
-                    onPress: recenterMap,
-                  },
+                  { icon: 'calendar-plus', label: 'Add Event', onPress: () => setModalVisible(true) },
+                  { icon: 'crosshairs-gps', label: 'Recenter', onPress: recenterMap },
                 ]}
                 onStateChange={({ open }) => setFabOpen(open)}
-                onPress={() => {
-                  if (fabOpen) {
-                    // Action if the speed dial is open
-                  }
-                }}
                 fabStyle={[styles.fab, { backgroundColor: theme.colors.primary }]}
                 color={theme.colors.onPrimary}
                 backdropColor="transparent"
@@ -383,6 +460,12 @@ const MapScreen = ({ navigation }) => {
               onSave={onSaveEvent}
               initialLocation={selectedLocation}
             />
+
+            <EventDetailModal
+              visible={detailVisible}
+              onDismiss={() => setDetailVisible(false)}
+              event={selectedEvent}
+            />
           </>
         ) : null}
       </View>
@@ -391,55 +474,16 @@ const MapScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 90,
-    left: 16,
-    right: 16,
-    zIndex: 100,
-  },
-  searchBar: {
-    elevation: 4,
-  },
-  resultsCard: {
-    marginTop: 4,
-    maxHeight: 250,
-  },
-  content: {
-    flex: 1,
-    position: 'relative',
-  },
-  centerBox: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  map: {
-    flex: 1,
-  },
-  fab: {
-    borderRadius: 28,
-  },
-  avatarContainer: {
-    marginRight: 16,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: 'white',
-  }
+  container: { flex: 1 },
+  searchContainer: { position: 'absolute', top: 90, left: 16, right: 16, zIndex: 100 },
+  searchBar: { elevation: 4 },
+  resultsCard: { marginTop: 4, maxHeight: 250 },
+  content: { flex: 1, position: 'relative' },
+  centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  map: { flex: 1 },
+  fab: { borderRadius: 28 },
+  avatarContainer: { marginRight: 16, position: 'relative', justifyContent: 'center', alignItems: 'center' },
+  onlineIndicator: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#4CAF50', borderWidth: 2, borderColor: 'white' }
 });
 
 export default MapScreen;

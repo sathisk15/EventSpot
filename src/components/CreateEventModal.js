@@ -17,7 +17,11 @@ import {
   useTheme, 
   Portal, 
   ActivityIndicator,
-  IconButton
+  IconButton,
+  Searchbar,
+  List,
+  Card,
+  Chip
 } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -31,6 +35,53 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Local location state
+  const [localLocation, setLocalLocation] = React.useState(initialLocation);
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  // Sync with initialLocation when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      setLocalLocation(initialLocation);
+      setSearchQuery(initialLocation?.address || '');
+    }
+  }, [visible, initialLocation]);
+
+  const handleLocationSearch = async (query) => {
+    if (!query) return;
+    setSearchLoading(true);
+    setShowResults(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+        { headers: { 'User-Agent': 'EventSpotApp/1.0' } }
+      );
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error("Search fetch failed:", error);
+      Alert.alert('Search Error', 'Could not fetch location results.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const selectLocation = (item) => {
+    const newLoc = {
+      latitude: parseFloat(item.lat),
+      longitude: parseFloat(item.lon),
+      address: item.display_name
+    };
+    setLocalLocation(newLoc);
+    setSearchQuery(item.display_name);
+    setShowResults(false);
+  };
 
   const handlePickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -81,7 +132,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
         description,
         date: date.toISOString(),
         images: images.map(img => img.uri),
-        location: initialLocation, // { latitude, longitude, address }
+        location: localLocation, // Use localLocation which might have been changed via search
       });
       // Reset form
       setEventName('');
@@ -107,7 +158,51 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
           </Button>
         </Appbar.Header>
 
-        <ScrollView style={styles.form}>
+        <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
+          <View style={styles.searchSection}>
+            <Text variant="labelLarge" style={styles.sectionTitle}>Event Location</Text>
+            <Searchbar
+              placeholder="Search location..."
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                if (!text) {
+                  setSearchResults([]);
+                  setShowResults(false);
+                }
+              }}
+              value={searchQuery}
+              onSubmitEditing={() => handleLocationSearch(searchQuery)}
+              onClearIconPress={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+                setShowResults(false);
+              }}
+              loading={searchLoading}
+              style={styles.searchBar}
+            />
+            {showResults && searchResults.length > 0 && (
+              <Card style={styles.resultsCard}>
+                <List.Section>
+                  {searchResults.map((item, index) => (
+                    <List.Item
+                      key={index}
+                      title={item.display_name}
+                      onPress={() => selectLocation(item)}
+                      left={props => <List.Icon {...props} icon="map-marker" />}
+                    />
+                  ))}
+                </List.Section>
+              </Card>
+            )}
+            {!showResults && localLocation && (
+              <View style={styles.selectedLocationBox}>
+                <Chip icon="check-circle" style={{ backgroundColor: theme.colors.primaryContainer }}>
+                  {localLocation.address}
+                </Chip>
+              </View>
+            )}
+          </View>
+
           <TextInput
             label="Event Name"
             value={eventName}
@@ -126,21 +221,16 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
             style={styles.input}
           />
 
-          <View style={styles.locationInfo}>
-            <Text variant="labelLarge" style={{ color: theme.colors.outline }}>Location</Text>
-            <Text variant="bodyMedium">{initialLocation?.address || 'Searching for coordinates...'}</Text>
-          </View>
-
           <View style={styles.dateTimeContainer}>
             <View style={styles.dateTimeItem}>
               <Text variant="labelLarge">Date</Text>
-              <Button mode="outlined" onPress={() => setShowDatePicker(true)} icon="calendar">
+              <Button mode="outlined" onPress={() => setShowDatePicker(true)} icon="calendar" style={styles.dateTimeButton}>
                 {date.toLocaleDateString()}
               </Button>
             </View>
             <View style={styles.dateTimeItem}>
               <Text variant="labelLarge">Time</Text>
-              <Button mode="outlined" onPress={() => setShowTimePicker(true)} icon="clock">
+              <Button mode="outlined" onPress={() => setShowTimePicker(true)} icon="clock" style={styles.dateTimeButton}>
                 {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Button>
             </View>
@@ -201,18 +291,29 @@ const styles = StyleSheet.create({
   form: {
     padding: 16,
   },
+  searchSection: {
+    marginBottom: 20,
+  },
+  searchBar: {
+    elevation: 2,
+    backgroundColor: 'white',
+  },
+  resultsCard: {
+    marginTop: 4,
+    maxHeight: 200,
+    elevation: 4,
+    zIndex: 1000,
+  },
+  selectedLocationBox: {
+    marginTop: 12,
+    flexDirection: 'row',
+  },
   input: {
     marginBottom: 16,
   },
   sectionTitle: {
     marginTop: 8,
     marginBottom: 8,
-  },
-  locationInfo: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
   },
   dateTimeContainer: {
     flexDirection: 'row',
@@ -221,6 +322,9 @@ const styles = StyleSheet.create({
   },
   dateTimeItem: {
     flex: 0.48,
+  },
+  dateTimeButton: {
+    marginTop: 4,
   },
   imageScroll: {
     flexDirection: 'row',
