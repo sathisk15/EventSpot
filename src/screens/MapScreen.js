@@ -57,12 +57,20 @@ const MapScreen = ({ navigation }) => {
           onPress={() => navigation.navigate('Profile')}
           style={styles.avatarContainer}
         >
-          <Avatar.Text 
-            size={36} 
-            label={getInitials()} 
-            style={{ backgroundColor: theme.colors.primary }}
-            color={theme.colors.onPrimary}
-          />
+          {user?.photoURL ? (
+            <Avatar.Image
+              size={36}
+              source={{ uri: user.photoURL }}
+              style={{ backgroundColor: theme.colors.surfaceVariant }}
+            />
+          ) : (
+            <Avatar.Text 
+              size={36} 
+              label={getInitials()} 
+              style={{ backgroundColor: theme.colors.primary }}
+              color={theme.colors.onPrimary}
+            />
+          )}
           <View style={styles.onlineIndicator} />
         </TouchableOpacity>
       </Appbar.Header>
