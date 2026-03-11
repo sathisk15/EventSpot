@@ -14,5 +14,12 @@
     "react": "19.2.0",
     "react-native": "0.83.2"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-native": "^5.0.0",
+    "prettier": "^3.8.1"
+  }
 }
