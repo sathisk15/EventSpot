@@ -2,8 +2,9 @@ import React, { useState, useContext, useEffect } from 'react';
 import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, TextInput, Button, useTheme, Appbar, HelperText, Avatar } from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { auth, storage } from '../config/firebase';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -40,33 +41,53 @@ const ProfileScreen = ({ navigation }) => {
       quality: 0.5,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets[0].uri) {
       uploadImage(result.assets[0].uri);
     }
   };
 
   const uploadImage = async (uri) => {
+    if (!uri) return;
+
     setUploadingImage(true);
-    setMessage('');
-    setErrorMsg('');
+    setErrorMsg("");
+    setMessage("");
+
     try {
-      // 1. Convert URI to Blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Bypass React Native's bugged fetch() and Blob networking entirely by using
+      // Expo's native file system upload utility to hit the Firebase REST API directly.
+      const bucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
+      const path = `profiles/${user.uid}.jpg`;
+      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${encodeURIComponent(path)}`;
+
+      const idToken = await auth.currentUser.getIdToken();
+
+      const uploadResult = await FileSystem.uploadAsync(url, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'image/jpeg'
+        }
+      });
+
+      if (uploadResult.status !== 200) {
+        throw new Error(`Upload failed with status: ${uploadResult.status} - ${uploadResult.body}`);
+      }
+
+      const responseData = JSON.parse(uploadResult.body);
+      const downloadToken = responseData.downloadTokens;
       
-      // 2. Upload to Firebase Storage
-      const fileRef = ref(storage, `profiles/${user.uid}.jpg`);
-      await uploadBytes(fileRef, blob);
-      
-      // 3. Get Download URL
-      const photoURL = await getDownloadURL(fileRef);
-      
-      // 4. Update Auth Profile
-      await updateProfile(auth.currentUser, { photoURL });
-      
-      setMessage('Profile picture updated successfully!');
+      const photoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${downloadToken}`;
+
+      await updateProfile(auth.currentUser, {
+        photoURL,
+      });
+
+      setMessage("Profile picture updated successfully!");
     } catch (error) {
-      setErrorMsg('Error uploading image: ' + error.message);
+       console.log("Native Upload error:", error);
+       setErrorMsg("Image upload failed: " + error.message);
     } finally {
       setUploadingImage(false);
     }
