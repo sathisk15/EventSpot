@@ -1,11 +1,12 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, StyleSheet, Dimensions, Alert } from 'react-native';
-import { Text, Appbar, useTheme, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, Alert, TouchableOpacity } from 'react-native';
+import { Text, Appbar, useTheme, ActivityIndicator, Avatar } from 'react-native-paper';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { AuthContext } from '../contexts/AuthContext';
 
 const MapScreen = ({ navigation }) => {
+  const { user } = useContext(AuthContext);
   const theme = useTheme();
   
   const [location, setLocation] = useState(null);
@@ -38,11 +39,32 @@ const MapScreen = ({ navigation }) => {
     })();
   }, []);
 
+  const getInitials = () => {
+    if (user?.displayName) {
+      return user.displayName.charAt(0).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
         <Appbar.Content title="EventSpot" titleStyle={{ fontWeight: 'bold', color: theme.colors.primary }} />
-        <Appbar.Action icon="account-circle" onPress={() => navigation.navigate('Profile')} color={theme.colors.primary} />
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.avatarContainer}
+        >
+          <Avatar.Text 
+            size={36} 
+            label={getInitials()} 
+            style={{ backgroundColor: theme.colors.primary }}
+            color={theme.colors.onPrimary}
+          />
+          <View style={styles.onlineIndicator} />
+        </TouchableOpacity>
       </Appbar.Header>
 
       <View style={styles.content}>
@@ -87,6 +109,23 @@ const styles = StyleSheet.create({
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
   },
+  avatarContainer: {
+    marginRight: 16,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50', // Vibrant Green
+    borderWidth: 2,
+    borderColor: 'white',
+  }
 });
 
 export default MapScreen;
