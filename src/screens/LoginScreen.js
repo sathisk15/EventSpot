@@ -1,14 +1,41 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Text, TextInput, Button, useTheme } from 'react-native-paper';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { AuthContext } from '../contexts/AuthContext';
+
+// Ensure the web browser redirect handling completes correctly
+WebBrowser.maybeCompleteAuthSession();
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useContext(AuthContext);
+  const { login, loginWithGoogle } = useContext(AuthContext);
   const theme = useTheme();
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleLogin(id_token);
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async (idToken) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(idToken);
+    } catch (error) {
+       Alert.alert('Google Login Error', error.message);
+    } finally {
+       setLoading(false);
+    }
+  }
 
   const handleLogin = async () => {
     setLoading(true);
@@ -53,6 +80,16 @@ const LoginScreen = ({ navigation }) => {
       >
         Login
       </Button>
+
+      <Button
+        mode="outlined"
+        icon="google"
+        style={styles.button}
+        onPress={() => promptAsync()}
+        disabled={!request || loading}
+      >
+        Sign in with Google
+      </Button>
       
       <Button 
         mode="text" 
@@ -86,3 +123,4 @@ const styles = StyleSheet.create({
 });
 
 export default LoginScreen;
+
