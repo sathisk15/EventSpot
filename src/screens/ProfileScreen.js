@@ -3,9 +3,10 @@ import { View, StyleSheet, Alert, ScrollView, TouchableOpacity, Image } from 're
 import { Text, TextInput, Button, useTheme, Appbar, HelperText, Avatar, Portal, Modal, IconButton } from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { auth, storage } from '../config/firebase';
+import { auth, storage, db } from '../config/firebase';
 import { AuthContext } from '../contexts/AuthContext';
 
 const ProfileScreen = ({ navigation }) => {
@@ -14,12 +15,34 @@ const ProfileScreen = ({ navigation }) => {
 
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [newPassword, setNewPassword] = useState('');
+  const [bio, setBio] = useState('');
+  const [socialLink, setSocialLink] = useState('');
+
   const [loadingName, setLoadingName] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
+  const [loadingBio, setLoadingBio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user?.uid) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setBio(data.bio || '');
+            setSocialLink(data.socialLink || '');
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      }
+    };
+    fetchUserData();
+  }, [user]);
 
   const getInitials = () => {
     if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
@@ -55,8 +78,6 @@ const ProfileScreen = ({ navigation }) => {
     setMessage("");
 
     try {
-      // Bypass React Native's bugged fetch() and Blob networking entirely by using
-      // Expo's native file system upload utility to hit the Firebase REST API directly.
       const bucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
       const path = `profiles/${user.uid}.jpg`;
       const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${encodeURIComponent(path)}`;
@@ -113,6 +134,23 @@ const ProfileScreen = ({ navigation }) => {
       setErrorMsg(error.message);
     } finally {
       setLoadingName(false);
+    }
+  };
+
+  const handleUpdateBioAndLinks = async () => {
+    setLoadingBio(true);
+    setMessage('');
+    setErrorMsg('');
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        bio: bio.trim(),
+        socialLink: socialLink.trim()
+      }, { merge: true });
+      setMessage('Public profile updated successfully!');
+    } catch (error) {
+      setErrorMsg(error.message);
+    } finally {
+      setLoadingBio(false);
     }
   };
 
@@ -183,7 +221,7 @@ const ProfileScreen = ({ navigation }) => {
         </HelperText>
 
         <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Profile Details</Text>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Account Details</Text>
           <TextInput
             mode="outlined"
             label="Display Name"
@@ -199,6 +237,39 @@ const ProfileScreen = ({ navigation }) => {
             style={styles.button}
           >
             Update Name
+          </Button>
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Public Profile</Text>
+          <TextInput
+            mode="outlined"
+            label="Short Bio"
+            value={bio}
+            onChangeText={(text) => { setBio(text); setMessage(''); setErrorMsg(''); }}
+            style={styles.input}
+            multiline
+            numberOfLines={3}
+            placeholder="Tell people about yourself or your events..."
+          />
+          <TextInput
+            mode="outlined"
+            label="Social Link (Instagram, Twitter, etc)"
+            value={socialLink}
+            onChangeText={(text) => { setSocialLink(text); setMessage(''); setErrorMsg(''); }}
+            style={styles.input}
+            autoCapitalize="none"
+            keyboardType="url"
+            placeholder="https://"
+          />
+          <Button 
+            mode="contained-tonal" 
+            onPress={handleUpdateBioAndLinks} 
+            loading={loadingBio}
+            disabled={loadingBio}
+            style={styles.button}
+          >
+            Update Public Profile
           </Button>
         </View>
 
