@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, TextInput, Button, useTheme, Appbar, HelperText, Avatar } from 'react-native-paper';
+import { View, StyleSheet, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { Text, TextInput, Button, useTheme, Appbar, HelperText, Avatar, Portal, Modal, IconButton } from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,6 +19,7 @@ const ProfileScreen = ({ navigation }) => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
 
   const getInitials = () => {
     if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
@@ -85,6 +86,7 @@ const ProfileScreen = ({ navigation }) => {
       });
 
       setMessage("Profile picture updated successfully!");
+      setModalVisible(false);
     } catch (error) {
        console.log("Native Upload error:", error);
        setErrorMsg("Image upload failed: " + error.message);
@@ -155,7 +157,7 @@ const ProfileScreen = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerSection}>
-          <TouchableOpacity onPress={pickImage} disabled={uploadingImage} style={styles.avatarWrapper}>
+          <TouchableOpacity onPress={() => setModalVisible(true)} disabled={uploadingImage} style={styles.avatarWrapper}>
             {user?.photoURL ? (
               <Avatar.Image size={80} source={{ uri: user.photoURL }} style={{ backgroundColor: theme.colors.surfaceVariant }} />
             ) : (
@@ -234,6 +236,42 @@ const ProfileScreen = ({ navigation }) => {
           </Button>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Modal
+          visible={modalVisible}
+          onDismiss={() => setModalVisible(false)}
+          contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}
+        >
+          <View style={styles.modalHeader}>
+            <Text variant="titleLarge">Profile Picture</Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => setModalVisible(false)}
+            />
+          </View>
+          
+          <View style={styles.modalImageContainer}>
+             {user?.photoURL ? (
+                <Image source={{ uri: user.photoURL }} style={styles.fullSizeImage} resizeMode="contain" />
+              ) : (
+                <Avatar.Text size={200} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
+              )}
+          </View>
+
+          <Button 
+            mode="contained" 
+            icon="camera" 
+            onPress={pickImage} 
+            loading={uploadingImage}
+            disabled={uploadingImage}
+            style={styles.modalButton}
+          >
+            {uploadingImage ? 'Uploading...' : 'Upload New Image'}
+          </Button>
+        </Modal>
+      </Portal>
     </View>
   );
 };
@@ -298,6 +336,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
     fontSize: 14,
+  },
+  modalContent: {
+    padding: 24,
+    margin: 20,
+    borderRadius: 16,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  fullSizeImage: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+  },
+  modalButton: {
+    marginTop: 8,
   }
 });
 
