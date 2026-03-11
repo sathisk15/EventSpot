@@ -7,6 +7,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import MapScreen from '../screens/MapScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,7 +27,10 @@ const AppNavigator = () => {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           // Main Stack
-          <Stack.Screen name="Map" component={MapScreen} />
+          <>
+            <Stack.Screen name="Map" component={MapScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+          </>
         ) : (
           // Auth Stack
           <>

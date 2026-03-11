@@ -5,8 +5,7 @@ import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { AuthContext } from '../contexts/AuthContext';
 
-const MapScreen = () => {
-  const { logout } = useContext(AuthContext);
+const MapScreen = ({ navigation }) => {
   const theme = useTheme();
   
   const [location, setLocation] = useState(null);
@@ -43,7 +42,7 @@ const MapScreen = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
         <Appbar.Content title="EventSpot" titleStyle={{ fontWeight: 'bold', color: theme.colors.primary }} />
-        <Appbar.Action icon="logout" onPress={logout} color={theme.colors.error} />
+        <Appbar.Action icon="account-circle" onPress={() => navigation.navigate('Profile')} color={theme.colors.primary} />
       </Appbar.Header>
 
       <View style={styles.content}>
