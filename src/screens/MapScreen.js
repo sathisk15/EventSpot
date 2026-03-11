@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, Button } from 'react-native';
+import { AuthContext } from '../contexts/AuthContext';
 
-const MapScreen = ({ navigation }) => {
+const MapScreen = () => {
+  const { logout } = useContext(AuthContext);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Event Map</Text>
       <Text>Where the magic happens...</Text>
       <Button 
-        title="Log Out (Temp)" 
-        onPress={() => navigation.navigate('Login')}
+        title="Log Out" 
+        onPress={logout}
       />
     </View>
   );
