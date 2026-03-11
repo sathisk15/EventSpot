@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { Text, TextInput, Button, useTheme } from 'react-native-paper';
+import { Text, TextInput, Button, useTheme, HelperText } from 'react-native-paper';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthContext } from '../contexts/AuthContext';
@@ -11,12 +11,15 @@ WebBrowser.maybeCompleteAuthSession();
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useContext(AuthContext);
   const theme = useTheme();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Temp fallback to prevent crash if not explicitly set
   });
 
   useEffect(() => {
@@ -37,7 +40,27 @@ const LoginScreen = ({ navigation }) => {
     }
   }
 
+  const validateForm = () => {
+    let isValid = true;
+    if (!email.includes('@') || !email.includes('.')) {
+      setEmailError('Please enter a valid email address');
+      isValid = false;
+    } else {
+      setEmailError('');
+    }
+
+    if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      isValid = false;
+    } else {
+      setPasswordError('');
+    }
+    return isValid;
+  };
+
   const handleLogin = async () => {
+    if (!validateForm()) return;
+
     setLoading(true);
     try {
       await login(email, password);
@@ -56,20 +79,28 @@ const LoginScreen = ({ navigation }) => {
         mode="outlined"
         label="Email"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(text) => { setEmail(text); setEmailError(''); }}
         autoCapitalize="none"
         keyboardType="email-address"
         style={styles.input}
+        error={!!emailError}
       />
+      <HelperText type="error" visible={!!emailError}>
+        {emailError}
+      </HelperText>
       
       <TextInput
         mode="outlined"
         label="Password"
         value={password}
-        onChangeText={setPassword}
+        onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
         secureTextEntry
         style={styles.input}
+        error={!!passwordError}
       />
+      <HelperText type="error" visible={!!passwordError}>
+        {passwordError}
+      </HelperText>
       
       <Button 
         mode="contained" 
@@ -113,7 +144,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
-    marginBottom: 16,
+    marginBottom: 2, // Reduced margin since HelperText takes up space
   },
   button: {
     marginTop: 8,
@@ -123,4 +154,3 @@ const styles = StyleSheet.create({
 });
 
 export default LoginScreen;
-
