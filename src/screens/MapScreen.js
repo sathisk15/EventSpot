@@ -1,18 +1,23 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text, Button, Appbar, useTheme } from 'react-native-paper';
 import { AuthContext } from '../contexts/AuthContext';
 
 const MapScreen = () => {
   const { logout } = useContext(AuthContext);
+  const theme = useTheme();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Event Map</Text>
-      <Text>Where the magic happens...</Text>
-      <Button 
-        title="Log Out" 
-        onPress={logout}
-      />
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
+        <Appbar.Content title="EventSpot" titleStyle={{ fontWeight: 'bold', color: theme.colors.primary }} />
+        <Appbar.Action icon="logout" onPress={logout} color={theme.colors.error} />
+      </Appbar.Header>
+
+      <View style={styles.content}>
+        <Text variant="titleLarge" style={styles.title}>Event Map</Text>
+        <Text variant="bodyMedium">Where the magic happens...</Text>
+      </View>
     </View>
   );
 };
@@ -20,14 +25,14 @@ const MapScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
   },
 });
 

@@ -1,43 +1,65 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, Button, TextInput, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
+import { Text, TextInput, Button, useTheme } from 'react-native-paper';
 import { AuthContext } from '../contexts/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
+  const theme = useTheme();
 
   const handleLogin = async () => {
+    setLoading(true);
     try {
       await login(email, password);
     } catch (error) {
       Alert.alert('Login Error', error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to EventSpot</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>EventSpot</Text>
+      
       <TextInput
-        style={styles.input}
-        placeholder="Email"
+        mode="outlined"
+        label="Email"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
-      />
-      <TextInput
         style={styles.input}
-        placeholder="Password"
+      />
+      
+      <TextInput
+        mode="outlined"
+        label="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        style={styles.input}
       />
-      <Button title="Login" onPress={handleLogin} />
+      
       <Button 
-        title="Don't have an account? Register" 
+        mode="contained" 
+        onPress={handleLogin} 
+        style={styles.button}
+        loading={loading}
+        disabled={loading}
+      >
+        Login
+      </Button>
+      
+      <Button 
+        mode="text" 
         onPress={() => navigation.navigate('Register')}
-      />
+      >
+        Don't have an account? Register
+      </Button>
     </View>
   );
 };
@@ -45,22 +67,21 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 24,
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 32,
     textAlign: 'center',
   },
   input: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    marginBottom: 16,
+  },
+  button: {
+    marginTop: 8,
+    marginBottom: 16,
+    paddingVertical: 6,
   },
 });
 
