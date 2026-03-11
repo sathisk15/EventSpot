@@ -1,8 +1,10 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Text, TextInput, Button, useTheme, Appbar, HelperText } from 'react-native-paper';
+import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, TextInput, Button, useTheme, Appbar, HelperText, Avatar } from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
+import { auth, storage } from '../config/firebase';
 import { AuthContext } from '../contexts/AuthContext';
 
 const ProfileScreen = ({ navigation }) => {
@@ -13,8 +15,62 @@ const ProfileScreen = ({ navigation }) => {
   const [newPassword, setNewPassword] = useState('');
   const [loadingName, setLoadingName] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  const getInitials = () => {
+    if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
+    if (user?.email) return user.email.charAt(0).toUpperCase();
+    return 'U';
+  };
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      setErrorMsg("Permission to access camera roll is required!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      uploadImage(result.assets[0].uri);
+    }
+  };
+
+  const uploadImage = async (uri) => {
+    setUploadingImage(true);
+    setMessage('');
+    setErrorMsg('');
+    try {
+      // 1. Convert URI to Blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // 2. Upload to Firebase Storage
+      const fileRef = ref(storage, `profiles/${user.uid}.jpg`);
+      await uploadBytes(fileRef, blob);
+      
+      // 3. Get Download URL
+      const photoURL = await getDownloadURL(fileRef);
+      
+      // 4. Update Auth Profile
+      await updateProfile(auth.currentUser, { photoURL });
+      
+      setMessage('Profile picture updated successfully!');
+    } catch (error) {
+      setErrorMsg('Error uploading image: ' + error.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleUpdateName = async () => {
     if (!displayName.trim()) {
@@ -78,7 +134,17 @@ const ProfileScreen = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerSection}>
-          <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+          <TouchableOpacity onPress={pickImage} disabled={uploadingImage} style={styles.avatarWrapper}>
+            {user?.photoURL ? (
+              <Avatar.Image size={80} source={{ uri: user.photoURL }} style={{ backgroundColor: theme.colors.surfaceVariant }} />
+            ) : (
+              <Avatar.Text size={80} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
+            )}
+            <View style={styles.editBadge}>
+              <Text style={{color: 'white', fontSize: 10, fontWeight: 'bold'}}>{uploadingImage ? '...' : 'EDIT'}</Text>
+            </View>
+          </TouchableOpacity>
+          <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginTop: 12 }}>
             {user?.displayName || 'EventSpot User'}
           </Text>
           <Text variant="bodyLarge" style={{ color: 'gray' }}>
@@ -164,6 +230,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#00000099',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'white',
   },
   section: {
     marginBottom: 32,
