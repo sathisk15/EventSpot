@@ -1,9 +1,11 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Alert, TouchableOpacity } from 'react-native';
-import { Text, Appbar, useTheme, ActivityIndicator, Avatar, FAB } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, Alert, TouchableOpacity, Keyboard } from 'react-native';
+import { Text, Appbar, useTheme, ActivityIndicator, Avatar, FAB, Searchbar, List, Card, Portal } from 'react-native-paper';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { AuthContext } from '../contexts/AuthContext';
+import CreateEventModal from '../components/CreateEventModal';
+import { saveEvent } from '../services/eventService';
 
 const MapScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -14,6 +16,19 @@ const MapScreen = ({ navigation }) => {
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRecentering, setIsRecentering] = useState(false);
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  // FAB Group state
+  const [fabOpen, setFabOpen] = useState(false);
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -44,11 +59,12 @@ const MapScreen = ({ navigation }) => {
         }
         
         if (currentLocation) {
-          console.log("Found location:", currentLocation.coords);
-          setLocation({
+          const loc = {
             latitude: currentLocation.coords.latitude,
             longitude: currentLocation.coords.longitude,
-          });
+          };
+          setLocation(loc);
+          setSelectedLocation({ ...loc, address: 'Your Current Location' });
         } else {
           setErrorMsg('Waiting for precision location...');
         }
@@ -60,6 +76,55 @@ const MapScreen = ({ navigation }) => {
       }
     })();
   }, []);
+
+  const handleSearch = async (query) => {
+    if (!query) return;
+    setSearchLoading(true);
+    setShowResults(true);
+    try {
+      console.log("Searching Nominatim for:", query);
+      // Nominatim Search (OpenStreetMap) - Free & No Key needed
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'EventSpotApp/1.0',
+          }
+        }
+      );
+      console.log("Nominatim response status:", response.status);
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error("Search fetch failed:", error);
+      Alert.alert('Search Error', `Network request failed. Please check your internet connection. (Error: ${error.message})`);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const selectSearchResult = (item) => {
+    const newLoc = {
+      latitude: parseFloat(item.lat),
+      longitude: parseFloat(item.lon),
+      address: item.display_name
+    };
+    
+    setLocation(newLoc);
+    setSelectedLocation(newLoc);
+    setShowResults(false);
+    setSearchQuery(item.display_name);
+    Keyboard.dismiss();
+
+    // Update Map
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'UPDATE_LOCATION',
+        lat: newLoc.latitude,
+        lng: newLoc.longitude
+      }));
+    }
+  };
 
   const recenterMap = async () => {
     if (!webViewRef.current) return;
@@ -75,8 +140,8 @@ const MapScreen = ({ navigation }) => {
         longitude: currentLocation.coords.longitude,
       };
       
-      console.log("Recentering to:", newLoc);
       setLocation(newLoc);
+      setSelectedLocation({ ...newLoc, address: 'Current Location' });
       
       webViewRef.current.postMessage(JSON.stringify({
         type: 'UPDATE_LOCATION',
@@ -87,6 +152,18 @@ const MapScreen = ({ navigation }) => {
       console.error("Recenter error:", error);
     } finally {
       setIsRecentering(false);
+    }
+  };
+
+  const onSaveEvent = async (eventData) => {
+    try {
+      await saveEvent(eventData);
+      Alert.alert('Success', 'Event created successfully!');
+      setModalVisible(false);
+      // Fetch events or update UI here later
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
   };
 
@@ -154,8 +231,6 @@ const MapScreen = ({ navigation }) => {
              window.ReactNativeWebView.postMessage(JSON.stringify({type: 'LOG', msg: msg}));
           }
 
-          log("HTML: Initializing map at " + ${location?.latitude} + ", " + ${location?.longitude});
-
           var map = L.map('map', {
             zoomControl: false,
             attributionControl: false
@@ -178,7 +253,6 @@ const MapScreen = ({ navigation }) => {
 
           window.addEventListener('message', function(event) {
             var data = JSON.parse(event.data);
-            log("HTML: Received message " + data.type);
             if (data.type === 'UPDATE_LOCATION') {
               map.setView([data.lat, data.lng], 15);
               userMarker.setLatLng([data.lat, data.lng]);
@@ -215,6 +289,37 @@ const MapScreen = ({ navigation }) => {
         </TouchableOpacity>
       </Appbar.Header>
 
+      <View style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Search location..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          onSubmitEditing={() => handleSearch(searchQuery)}
+          onClearIconPress={() => {
+            setSearchQuery('');
+            setSearchResults([]);
+            setShowResults(false);
+          }}
+          loading={searchLoading}
+          style={styles.searchBar}
+        />
+        {showResults && searchResults.length > 0 && (
+          <Card style={styles.resultsCard}>
+            <List.Section>
+              {searchResults.map((item, index) => (
+                <List.Item
+                  key={index}
+                  title={item.display_name}
+                  description={`${item.type || 'place'}`}
+                  onPress={() => selectSearchResult(item)}
+                  left={props => <List.Icon {...props} icon="map-marker" />}
+                />
+              ))}
+            </List.Section>
+          </Card>
+        )}
+      </View>
+
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centerBox}>
@@ -242,12 +347,41 @@ const MapScreen = ({ navigation }) => {
                 }
               }}
             />
-            <FAB
-              icon="crosshairs-gps"
-              style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-              color={theme.colors.onPrimary}
-              onPress={recenterMap}
-              loading={isRecentering}
+            
+            <Portal>
+              <FAB.Group
+                open={fabOpen}
+                visible={true}
+                icon={fabOpen ? 'close' : 'plus'}
+                actions={[
+                  {
+                    icon: 'calendar-plus',
+                    label: 'Add Event',
+                    onPress: () => setModalVisible(true),
+                  },
+                  {
+                    icon: 'crosshairs-gps',
+                    label: 'Recenter',
+                    onPress: recenterMap,
+                  },
+                ]}
+                onStateChange={({ open }) => setFabOpen(open)}
+                onPress={() => {
+                  if (fabOpen) {
+                    // Action if the speed dial is open
+                  }
+                }}
+                fabStyle={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                color={theme.colors.onPrimary}
+                backdropColor="transparent"
+              />
+            </Portal>
+
+            <CreateEventModal
+              visible={modalVisible}
+              onDismiss={() => setModalVisible(false)}
+              onSave={onSaveEvent}
+              initialLocation={selectedLocation}
             />
           </>
         ) : null}
@@ -259,6 +393,20 @@ const MapScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  searchContainer: {
+    position: 'absolute',
+    top: 90,
+    left: 16,
+    right: 16,
+    zIndex: 100,
+  },
+  searchBar: {
+    elevation: 4,
+  },
+  resultsCard: {
+    marginTop: 4,
+    maxHeight: 250,
   },
   content: {
     flex: 1,
@@ -273,10 +421,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
     borderRadius: 28,
   },
   avatarContainer: {
@@ -292,10 +436,11 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#4CAF50', // Vibrant Green
+    backgroundColor: '#4CAF50',
     borderWidth: 2,
     borderColor: 'white',
   }
 });
 
 export default MapScreen;
+

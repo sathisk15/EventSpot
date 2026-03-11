@@ -27,19 +27,30 @@
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-        [
-          "expo-location",
-          {
-            "locationAlwaysAndWhenInUsePermission": "EventSpot needs your location to show events near you."
-          }
-        ]
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "EventSpot needs your location to show events near you."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share events with images."
+        }
       ]
+    ]
   }
 }
