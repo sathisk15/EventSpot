@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, TextInput, Button, useTheme, HelperText } from 'react-native-paper';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -13,6 +13,7 @@ const RegisterScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [firebaseError, setFirebaseError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register, loginWithGoogle } = useContext(AuthContext);
   const theme = useTheme();
@@ -29,12 +30,26 @@ const RegisterScreen = ({ navigation }) => {
     }
   }, [response]);
 
+  const getFriendlyErrorMessage = (error) => {
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        return 'An account already exists with this email address.';
+      case 'auth/invalid-email':
+        return 'The email address is invalid.';
+      case 'auth/weak-password':
+        return 'The password is too weak. Please use a stronger password.';
+      default:
+        return error.message || 'An error occurred during registration.';
+    }
+  };
+
   const handleGoogleLogin = async (idToken) => {
     setLoading(true);
+    setFirebaseError('');
     try {
       await loginWithGoogle(idToken);
     } catch (error) {
-       Alert.alert('Google Registration Error', error.message);
+       setFirebaseError(getFriendlyErrorMessage(error));
     } finally {
        setLoading(false);
     }
@@ -42,6 +57,7 @@ const RegisterScreen = ({ navigation }) => {
 
   const validateForm = () => {
     let isValid = true;
+    setFirebaseError('');
     if (!email.includes('@') || !email.includes('.')) {
       setEmailError('Please enter a valid email address');
       isValid = false;
@@ -65,7 +81,7 @@ const RegisterScreen = ({ navigation }) => {
     try {
       await register(email, password);
     } catch (error) {
-      Alert.alert('Registration Error', error.message);
+      setFirebaseError(getFriendlyErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -79,7 +95,7 @@ const RegisterScreen = ({ navigation }) => {
         mode="outlined"
         label="Email"
         value={email}
-        onChangeText={(text) => { setEmail(text); setEmailError(''); }}
+        onChangeText={(text) => { setEmail(text); setEmailError(''); setFirebaseError(''); }}
         autoCapitalize="none"
         keyboardType="email-address"
         style={styles.input}
@@ -93,7 +109,7 @@ const RegisterScreen = ({ navigation }) => {
         mode="outlined"
         label="Password"
         value={password}
-        onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
+        onChangeText={(text) => { setPassword(text); setPasswordError(''); setFirebaseError(''); }}
         secureTextEntry
         style={styles.input}
         error={!!passwordError}
@@ -102,6 +118,10 @@ const RegisterScreen = ({ navigation }) => {
         {passwordError}
       </HelperText>
       
+      <HelperText type="error" visible={!!firebaseError} style={styles.firebaseError}>
+        {firebaseError}
+      </HelperText>
+
       <Button 
         mode="contained" 
         onPress={handleRegister} 
@@ -145,6 +165,11 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 2, // Reduced margin since HelperText takes up space
+  },
+  firebaseError: {
+    textAlign: 'center',
+    marginBottom: 8,
+    fontSize: 14,
   },
   button: {
     marginTop: 8,
