@@ -18,9 +18,8 @@ const ProfileScreen = ({ navigation }) => {
   const [bio, setBio] = useState('');
   const [socialLink, setSocialLink] = useState('');
 
-  const [loadingName, setLoadingName] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
-  const [loadingBio, setLoadingBio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -116,41 +115,32 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
-  const handleUpdateName = async () => {
+  const handleUpdateProfile = async () => {
     if (!displayName.trim()) {
       setErrorMsg('Display name cannot be empty.');
       return;
     }
 
-    setLoadingName(true);
+    setLoadingProfile(true);
     setMessage('');
     setErrorMsg('');
     try {
+      // 1. Update Auth Display Name
       await updateProfile(auth.currentUser, {
         displayName: displayName.trim()
       });
-      setMessage('Display name updated successfully!');
-    } catch (error) {
-      setErrorMsg(error.message);
-    } finally {
-      setLoadingName(false);
-    }
-  };
 
-  const handleUpdateBioAndLinks = async () => {
-    setLoadingBio(true);
-    setMessage('');
-    setErrorMsg('');
-    try {
+      // 2. Update Firestore Bio & Social Links
       await setDoc(doc(db, 'users', user.uid), {
         bio: bio.trim(),
         socialLink: socialLink.trim()
       }, { merge: true });
-      setMessage('Public profile updated successfully!');
+
+      setMessage('Profile updated successfully!');
     } catch (error) {
       setErrorMsg(error.message);
     } finally {
-      setLoadingBio(false);
+      setLoadingProfile(false);
     }
   };
 
@@ -221,7 +211,7 @@ const ProfileScreen = ({ navigation }) => {
         </HelperText>
 
         <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Account Details</Text>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Profile Details</Text>
           <TextInput
             mode="outlined"
             label="Display Name"
@@ -229,19 +219,6 @@ const ProfileScreen = ({ navigation }) => {
             onChangeText={(text) => { setDisplayName(text); setMessage(''); setErrorMsg(''); }}
             style={styles.input}
           />
-          <Button 
-            mode="contained" 
-            onPress={handleUpdateName} 
-            loading={loadingName}
-            disabled={loadingName}
-            style={styles.button}
-          >
-            Update Name
-          </Button>
-        </View>
-
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Public Profile</Text>
           <TextInput
             mode="outlined"
             label="Short Bio"
@@ -250,26 +227,26 @@ const ProfileScreen = ({ navigation }) => {
             style={styles.input}
             multiline
             numberOfLines={3}
-            placeholder="Tell people about yourself or your events..."
+            placeholder="Tell people about yourself..."
           />
           <TextInput
             mode="outlined"
-            label="Social Link (Instagram, Twitter, etc)"
+            label="Social Link"
             value={socialLink}
             onChangeText={(text) => { setSocialLink(text); setMessage(''); setErrorMsg(''); }}
             style={styles.input}
             autoCapitalize="none"
             keyboardType="url"
-            placeholder="https://"
+            placeholder="Instagram, Twitter, etc."
           />
           <Button 
-            mode="contained-tonal" 
-            onPress={handleUpdateBioAndLinks} 
-            loading={loadingBio}
-            disabled={loadingBio}
+            mode="contained" 
+            onPress={handleUpdateProfile} 
+            loading={loadingProfile}
+            disabled={loadingProfile}
             style={styles.button}
           >
-            Update Public Profile
+            Update Profile
           </Button>
         </View>
 
