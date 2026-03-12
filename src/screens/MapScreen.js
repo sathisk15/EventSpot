@@ -263,15 +263,25 @@ const MapScreen = ({ navigation }) => {
           
           .pin-tail {
             width: 0; height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 8px solid white;
-            margin-top: -12px;
-            z-index: -1;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid white;
+            margin-top: -10px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+          }
+
+          /* Debug Counter Overlay */
+          #debug-counter {
+            position: fixed; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.7); color: white;
+            padding: 5px 10px; border-radius: 15px;
+            font-size: 10px; z-index: 9999;
+            font-family: sans-serif; pointer-events: none;
           }
         </style>
       </head>
       <body>
+        <div id="debug-counter">Event Count: 0</div>
         <div id="map"></div>
         <script>
           function log(msg) { window.ReactNativeWebView.postMessage(JSON.stringify({type: 'LOG', msg: msg})); }
@@ -296,32 +306,49 @@ const MapScreen = ({ navigation }) => {
           var eventMarkersLayer = L.layerGroup().addTo(map);
 
           function renderEvents(eventList) {
+            log("Leaflet: Rendering " + eventList.length + " events.");
+            document.getElementById('debug-counter').innerText = "Event Count: " + eventList.length;
+            
             eventMarkersLayer.clearLayers();
             eventList.forEach(function(ev) {
-              if (ev.location && ev.location.latitude) {
-                var imgHtml = ev.images && ev.images[0] ? '<img src="' + ev.images[0] + '" />' : '<span>' + ev.name.charAt(0) + '</span>';
+              if (ev.location && ev.location.latitude !== undefined) {
+                var lat = parseFloat(ev.location.latitude);
+                var lng = parseFloat(ev.location.longitude);
+                
+                if (isNaN(lat) || isNaN(lng)) {
+                  log("Leaflet: Invalid coordinates for event: " + ev.name);
+                  return;
+                }
+
+                var imgHtml = ev.images && ev.images[0] ? '<img src="' + ev.images[0] + '" onerror="this.style.display=\\'none\\'" />' : '<span>' + (ev.name ? ev.name.charAt(0) : 'E') + '</span>';
                 
                 var pinHtml = '<div class="event-pin">' +
                                 '<div class="pin-head">' +
                                   '<div class="pin-image">' + imgHtml + '</div>' +
                                 '</div>' +
+                                '<div class="pin-tail"></div>' +
                               '</div>';
 
                 var pinIcon = L.divIcon({
                   className: 'custom-leaflet-marker',
                   html: pinHtml,
-                  iconSize: [44, 44], iconAnchor: [22, 44]
+                  iconSize: [44, 44], iconAnchor: [22, 54]
                 });
                 
-                var marker = L.marker([ev.location.latitude, ev.location.longitude], { icon: pinIcon })
+                var marker = L.marker([lat, lng], { icon: pinIcon })
                   .addTo(eventMarkersLayer);
                 
                 marker.on('click', function() {
                   sendEventClick(ev.id);
                 });
+              } else {
+                log("Leaflet: Skipping event due to missing location field: " + (ev.name || ev.id));
               }
             });
           }
+
+          // Let React Native know we are ready
+          window.ReactNativeWebView.postMessage(JSON.stringify({type: 'READY'}));
 
           // Initial Render
           renderEvents(${JSON.stringify(events)});
@@ -421,6 +448,12 @@ const MapScreen = ({ navigation }) => {
                 const data = JSON.parse(event.nativeEvent.data);
                 if (data.type === 'LOG') {
                   console.log("Leaflet Log:", data.msg);
+                } else if (data.type === 'READY') {
+                  console.log("Leaflet is ready, pushing initial events:", events.length);
+                  webViewRef.current?.postMessage(JSON.stringify({
+                    type: 'SET_EVENTS',
+                    events: events
+                  }));
                 } else if (data.type === 'EVENT_CLICK') {
                   const ev = events.find(e => e.id === data.id);
                   if (ev) {

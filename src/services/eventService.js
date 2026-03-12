@@ -65,12 +65,15 @@ export const saveEvent = async (eventData) => {
 
 export const fetchEvents = async () => {
   try {
-    const eventsQuery = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
+    console.log("Fetching events from Firestore...");
+    const eventsQuery = collection(db, 'events'); // Simplified query
     const querySnapshot = await getDocs(eventsQuery);
-    return querySnapshot.docs.map(doc => ({
+    const events = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    console.log(`Fetched ${events.length} events:`, events);
+    return events;
   } catch (error) {
     console.error("Error fetching events:", error);
     throw error;
