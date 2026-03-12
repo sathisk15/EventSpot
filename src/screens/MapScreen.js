@@ -104,6 +104,13 @@ const MapScreen = ({navigation}) => {
   const [modalInitialLocation, setModalInitialLocation] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
 
+  const hasActiveSearchOrFilters = Boolean(
+    searchQuery.trim() ||
+      searchResults.length > 0 ||
+      eventFilterQuery.trim() ||
+      eventFilterCategory !== ALL_EVENT_CATEGORIES,
+  );
+
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -271,6 +278,17 @@ const MapScreen = ({navigation}) => {
     } finally {
       setSearchLoading(false);
     }
+  };
+
+  const clearSearchAndFilters = () => {
+    Keyboard.dismiss();
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowResults(false);
+    setSearchLoading(false);
+    setEventFilterQuery('');
+    setEventFilterCategory(ALL_EVENT_CATEGORIES);
+    setShowEventFilters(false);
   };
 
   const selectSearchResult = item => {
@@ -690,29 +708,52 @@ const MapScreen = ({navigation}) => {
             style={styles.searchBar}
           />
           <View style={styles.controlsRow}>
-            <TouchableOpacity
-              testID="toggle-filters"
-              onPress={() => setShowEventFilters(current => !current)}
-              style={[
-                styles.controlButton,
-                {
-                  backgroundColor: showEventFilters
-                    ? theme.colors.primary
-                    : theme.colors.surfaceVariant || '#EFF3F7',
-                },
-              ]}>
-              <Text
+            <View style={styles.controlsActions}>
+              <TouchableOpacity
+                testID="toggle-filters"
+                onPress={() => setShowEventFilters(current => !current)}
                 style={[
-                  styles.controlButtonText,
+                  styles.controlButton,
                   {
-                    color: showEventFilters
-                      ? theme.colors.onPrimary || '#FFFFFF'
-                      : theme.colors.onSurface || '#0F172A',
+                    backgroundColor: showEventFilters
+                      ? theme.colors.primary
+                      : theme.colors.surfaceVariant || '#EFF3F7',
                   },
                 ]}>
-                {showEventFilters ? 'Hide Filters' : 'Show Filters'}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.controlButtonText,
+                    {
+                      color: showEventFilters
+                        ? theme.colors.onPrimary || '#FFFFFF'
+                        : theme.colors.onSurface || '#0F172A',
+                    },
+                  ]}>
+                  {showEventFilters ? 'Hide Filters' : 'Show Filters'}
+                </Text>
+              </TouchableOpacity>
+              {hasActiveSearchOrFilters ? (
+                <TouchableOpacity
+                  testID="clear-search-filters"
+                  onPress={clearSearchAndFilters}
+                  style={[
+                    styles.secondaryControlButton,
+                    {
+                      borderColor: theme.colors.outlineVariant || '#D5DEE8',
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.secondaryControlButtonText,
+                      {
+                        color: theme.colors.onSurface || '#0F172A',
+                      },
+                    ]}>
+                    Clear All
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <View style={styles.summaryPill}>
               <Text style={styles.summaryPillText}>
                 {filteredEvents.length}{' '}
@@ -965,7 +1006,13 @@ const styles = StyleSheet.create({
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 10,
+  },
+  controlsActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
   },
   controlButton: {
     borderRadius: 999,
@@ -973,6 +1020,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   controlButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  secondaryControlButton: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    marginLeft: 8,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+  },
+  secondaryControlButtonText: {
     fontSize: 13,
     fontWeight: '700',
   },

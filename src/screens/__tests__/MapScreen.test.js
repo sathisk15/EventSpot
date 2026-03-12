@@ -359,13 +359,14 @@ describe('MapScreen', () => {
   });
 
   it('renders event filter controls and summary', async () => {
-    const { getByTestId, getByPlaceholderText, getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+    const { getByTestId, getByPlaceholderText, getByText, queryByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
     expect(getByText('Find a place')).toBeTruthy();
     expect(getByText('1 event')).toBeTruthy();
     expect(getByText('Show Filters')).toBeTruthy();
+    expect(queryByText('Clear All')).toBeNull();
 
     fireEvent.press(getByTestId('toggle-filters'));
 
@@ -463,6 +464,74 @@ describe('MapScreen', () => {
         events: expect.arrayContaining([
           expect.objectContaining({name: 'Startup Mixer'}),
           expect.objectContaining({name: 'Cool Concert'}),
+        ]),
+      });
+    });
+  });
+
+  it('clears location search and event filters from a single action', async () => {
+    const allEvents = [
+      {
+        id: 'ev1',
+        name: 'Cool Concert',
+        category: 'Music',
+        location: { latitude: 51, longitude: 17, address: 'Concert Hall' },
+      },
+      {
+        id: 'ev2',
+        name: 'Food Market',
+        category: 'Food',
+        location: { latitude: 52, longitude: 18, address: 'Market Square' },
+      },
+    ];
+
+    fetchEvents.mockResolvedValue(allEvents);
+    subscribeToEvents.mockImplementationOnce(onEvents => {
+      eventsSubscriptionHandler = onEvents;
+      onEvents(allEvents);
+      return jest.fn();
+    });
+    global.fetch = createFetchMock();
+
+    const { getByPlaceholderText, getByTestId, getByText, queryByText } = render(
+      <MapScreen navigation={{}} />,
+      { wrapper: providers }
+    );
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    const searchInput = getByPlaceholderText('Search location...');
+    fireEvent.changeText(searchInput, 'Warsaw');
+    fireEvent(searchInput, 'onSubmitEditing');
+
+    await waitFor(() => {
+      expect(getByText('Warsaw, Poland')).toBeTruthy();
+      expect(getByText('Clear All')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('toggle-filters'));
+
+    const filterInput = getByPlaceholderText('Filter events by name, address, or category...');
+    fireEvent.changeText(filterInput, 'Market');
+    fireEvent.press(getByText('Food'));
+
+    await waitFor(() => {
+      expect(getByText('1 event')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('clear-search-filters'));
+
+    await waitFor(() => {
+      expect(searchInput.props.value).toBe('');
+      expect(queryByText('Warsaw, Poland')).toBeNull();
+      expect(queryByText('Filter events by name, address, or category...')).toBeNull();
+      expect(getByText('2 events')).toBeTruthy();
+      expect(queryByText('Clear All')).toBeNull();
+      expect(getLastMapMessage()).toEqual({
+        type: 'SET_EVENTS',
+        events: expect.arrayContaining([
+          expect.objectContaining({name: 'Cool Concert'}),
+          expect.objectContaining({name: 'Food Market'}),
         ]),
       });
     });
