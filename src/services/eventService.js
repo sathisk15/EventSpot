@@ -1,6 +1,35 @@
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage, auth } from '../config/firebase';
+import * as FileSystem from 'expo-file-system/legacy';
+import { db, auth } from '../config/firebase';
+
+const uploadEventImage = async (imageUri, user) => {
+  const bucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  const filename = `events/${user.uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${encodeURIComponent(filename)}`;
+  const idToken = await user.getIdToken();
+
+  const uploadResult = await FileSystem.uploadAsync(url, imageUri, {
+    httpMethod: 'POST',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': 'image/jpeg',
+    },
+  });
+
+  if (uploadResult.status !== 200) {
+    throw new Error(`Upload failed with status: ${uploadResult.status}`);
+  }
+
+  const responseData = JSON.parse(uploadResult.body);
+  if (!responseData.downloadTokens) {
+    throw new Error('Upload succeeded but no download token was returned');
+  }
+
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+    filename
+  )}?alt=media&token=${responseData.downloadTokens}`;
+};
 
 export const saveEvent = async (eventData) => {
   try {
@@ -13,28 +42,7 @@ export const saveEvent = async (eventData) => {
     for (const imageUri of eventData.images) {
       try {
         console.log("Processing image:", imageUri);
-        
-        // Use XMLHttpRequest which is more stable for local files on Android than fetch()
-        const blob = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.onload = function() {
-            resolve(xhr.response);
-          };
-          xhr.onerror = function(e) {
-            console.log("XHR Error:", e);
-            reject(new TypeError("Network request failed"));
-          };
-          xhr.responseType = "blob";
-          xhr.open("GET", imageUri, true);
-          xhr.send(null);
-        });
-        
-        const filename = `events/${user.uid}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-        const storageRef = ref(storage, filename);
-        
-        console.log("Uploading to Firebase Storage:", filename);
-        await uploadBytes(storageRef, blob);
-        const downloadUrl = await getDownloadURL(storageRef);
+        const downloadUrl = await uploadEventImage(imageUri, user);
         imageUrls.push(downloadUrl);
       } catch (uploadError) {
         console.error("Individual upload failed:", uploadError);
