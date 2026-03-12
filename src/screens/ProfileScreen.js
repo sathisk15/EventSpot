@@ -1,6 +1,26 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Text, TextInput, Button, useTheme, Appbar, HelperText, Avatar, Portal, Modal, IconButton } from 'react-native-paper';
+import {
+  View,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import {
+  Text,
+  TextInput,
+  Button,
+  useTheme,
+  Appbar,
+  HelperText,
+  Avatar,
+  Portal,
+  Modal,
+  IconButton,
+} from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -184,119 +204,173 @@ const ProfileScreen = ({ navigation }) => {
         <Appbar.Action icon="home" onPress={() => navigation.navigate('Map')} />
       </Appbar.Header>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerSection}>
-          <TouchableOpacity onPress={() => setModalVisible(true)} disabled={uploadingImage} style={styles.avatarWrapper}>
-            {user?.photoURL ? (
-              <Avatar.Image size={80} source={{ uri: user.photoURL }} style={{ backgroundColor: theme.colors.surfaceVariant }} />
-            ) : (
-              <Avatar.Text size={80} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
-            )}
-            <View style={styles.editBadge}>
-              <Text style={{color: 'white', fontSize: 10, fontWeight: 'bold'}}>{uploadingImage ? '...' : 'EDIT'}</Text>
-            </View>
-          </TouchableOpacity>
-          <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginTop: 12 }}>
-            {user?.displayName || 'EventSpot User'}
-          </Text>
-          <Text variant="bodyLarge" style={{ color: 'gray' }}>
-            {user?.email}
-          </Text>
-        </View>
-
-        <HelperText type="info" visible={!!message} style={styles.successText}>
-          {message}
-        </HelperText>
-        <HelperText type="error" visible={!!errorMsg} style={styles.errorText}>
-          {errorMsg}
-        </HelperText>
-
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Profile Details</Text>
-          <TextInput
-            mode="outlined"
-            label="Display Name"
-            value={displayName}
-            onChangeText={(text) => { setDisplayName(text); setMessage(''); setErrorMsg(''); }}
-            style={styles.input}
-          />
-          <TextInput
-            mode="outlined"
-            label="Short Bio"
-            value={bio}
-            onChangeText={(text) => { setBio(text); setMessage(''); setErrorMsg(''); }}
-            style={styles.input}
-            multiline
-            numberOfLines={3}
-            placeholder="Tell people about yourself..."
-          />
-          <TextInput
-            mode="outlined"
-            label="Social Link"
-            value={socialLink}
-            onChangeText={(text) => { setSocialLink(text); setMessage(''); setErrorMsg(''); }}
-            style={styles.input}
-            autoCapitalize="none"
-            keyboardType="url"
-            placeholder="Instagram, Twitter, etc."
-          />
-          <Button 
-            mode="contained" 
-            onPress={handleUpdateProfile} 
-            loading={loadingProfile}
-            disabled={loadingProfile}
-            style={styles.button}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          testID="profile-scroll"
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={[
+              styles.headerSection,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
           >
-            Update Profile
-          </Button>
-        </View>
+            <TouchableOpacity onPress={() => setModalVisible(true)} disabled={uploadingImage} style={styles.avatarWrapper}>
+              {user?.photoURL ? (
+                <Avatar.Image size={80} source={{ uri: user.photoURL }} style={{ backgroundColor: theme.colors.surfaceVariant }} />
+              ) : (
+                <Avatar.Text size={80} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
+              )}
+              <View style={styles.editBadge}>
+                <Text style={{color: 'white', fontSize: 10, fontWeight: 'bold'}}>{uploadingImage ? '...' : 'EDIT'}</Text>
+              </View>
+            </TouchableOpacity>
+            <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginTop: 12 }}>
+              {user?.displayName || 'EventSpot User'}
+            </Text>
+            <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>
+              {user?.email}
+            </Text>
+          </View>
+          <HelperText type="info" visible={!!message} style={styles.successText}>
+            {message}
+          </HelperText>
+          <HelperText type="error" visible={!!errorMsg} style={styles.errorText}>
+            {errorMsg}
+          </HelperText>
 
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Change Password</Text>
-          <TextInput
-            mode="outlined"
-            label="New Password"
-            value={newPassword}
-            onChangeText={(text) => { setNewPassword(text); setMessage(''); setErrorMsg(''); }}
-            secureTextEntry
-            style={styles.input}
-          />
-          <Button 
-            mode="outlined" 
-            onPress={handleUpdatePassword} 
-            loading={loadingPassword}
-            disabled={loadingPassword || !newPassword}
-            style={styles.button}
+          <View
+            style={[
+              styles.section,
+              styles.sectionCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
           >
-            Update Password
-          </Button>
-        </View>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Profile Details</Text>
+            <TextInput
+              mode="outlined"
+              label="Display Name"
+              value={displayName}
+              onChangeText={(text) => { setDisplayName(text); setMessage(''); setErrorMsg(''); }}
+              style={styles.input}
+            />
+            <TextInput
+              mode="outlined"
+              label="Short Bio"
+              value={bio}
+              onChangeText={(text) => { setBio(text); setMessage(''); setErrorMsg(''); }}
+              style={styles.input}
+              multiline
+              numberOfLines={3}
+              placeholder="Tell people about yourself..."
+            />
+            <TextInput
+              mode="outlined"
+              label="Social Link"
+              value={socialLink}
+              onChangeText={(text) => { setSocialLink(text); setMessage(''); setErrorMsg(''); }}
+              style={styles.input}
+              autoCapitalize="none"
+              keyboardType="url"
+              placeholder="Instagram, Twitter, etc."
+            />
+            <Button
+              mode="contained"
+              onPress={handleUpdateProfile}
+              loading={loadingProfile}
+              disabled={loadingProfile}
+              style={styles.button}
+            >
+              Update Profile
+            </Button>
+          </View>
 
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>My Activity</Text>
-          <Button
-            mode="contained-tonal"
-            icon="calendar-account"
-            onPress={() => navigation.navigate('MyEvents')}
-            style={styles.button}
+          <View
+            style={[
+              styles.section,
+              styles.sectionCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
           >
-            My Events
-          </Button>
-        </View>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Change Password</Text>
+            <TextInput
+              mode="outlined"
+              label="New Password"
+              value={newPassword}
+              onChangeText={(text) => { setNewPassword(text); setMessage(''); setErrorMsg(''); }}
+              secureTextEntry
+              style={styles.input}
+            />
+            <Button
+              mode="outlined"
+              onPress={handleUpdatePassword}
+              loading={loadingPassword}
+              disabled={loadingPassword || !newPassword}
+              style={styles.button}
+            >
+              Update Password
+            </Button>
+          </View>
 
-        <View style={styles.logoutSection}>
-          <Button 
-            mode="contained-tonal" 
-            icon="logout"
-            buttonColor={theme.colors.errorContainer}
-            textColor={theme.colors.onErrorContainer}
-            onPress={handleLogout} 
-            style={styles.logoutButton}
+          <View
+            style={[
+              styles.section,
+              styles.sectionCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
           >
-            Log Out
-          </Button>
-        </View>
-      </ScrollView>
+            <Text variant="titleMedium" style={styles.sectionTitle}>My Activity</Text>
+            <Button
+              mode="contained-tonal"
+              icon="calendar-account"
+              onPress={() => navigation.navigate('MyEvents')}
+              style={styles.button}
+            >
+              My Events
+            </Button>
+          </View>
+
+          <View
+            style={[
+              styles.logoutSection,
+              styles.sectionCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
+          >
+            <Text variant="titleMedium" style={styles.sectionTitle}>Session</Text>
+            <Button
+              mode="contained-tonal"
+              icon="logout"
+              buttonColor={theme.colors.errorContainer}
+              textColor={theme.colors.onErrorContainer}
+              onPress={handleLogout}
+              style={styles.logoutButton}
+            >
+              Log Out
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Portal>
         <Modal
@@ -341,15 +415,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  flex: {
+    flex: 1,
+  },
   content: {
     padding: 24,
+    paddingBottom: 144,
+    flexGrow: 1,
   },
   headerSection: {
     alignItems: 'center',
     marginBottom: 24,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderRadius: 24,
   },
   avatarWrapper: {
     position: 'relative',
@@ -366,7 +446,12 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
   section: {
-    marginBottom: 32,
+    marginBottom: 18,
+  },
+  sectionCard: {
+    padding: 18,
+    borderRadius: 22,
+    borderWidth: 1,
   },
   sectionTitle: {
     fontWeight: 'bold',
@@ -379,10 +464,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   logoutSection: {
-    marginTop: 16,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    marginTop: 6,
   },
   logoutButton: {
     paddingVertical: 6,

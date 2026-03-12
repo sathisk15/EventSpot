@@ -62,6 +62,19 @@ describe('ProfileScreen', () => {
     expect(screen.getByDisplayValue('Old Link')).toBeTruthy();
   });
 
+  it('keeps extra bottom padding so the logout section stays reachable', async () => {
+    const screen = renderWithUser();
+
+    await waitForInitialProfileLoad(screen);
+
+    expect(screen.getByTestId('profile-scroll').props.contentContainerStyle).toEqual(
+      expect.objectContaining({
+        paddingBottom: 144,
+        flexGrow: 1,
+      })
+    );
+  });
+
   it('skips Firestore hydration when the user document does not exist', async () => {
     getDoc.mockResolvedValueOnce({
       exists: () => false,
