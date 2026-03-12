@@ -12,6 +12,14 @@ jest.mock('../../screens/MapScreen', () => {
   const { View, Text } = require('react-native');
   return () => <View><Text>Map Screen</Text></View>;
 });
+jest.mock('../../screens/ProfileScreen', () => {
+  const { View, Text } = require('react-native');
+  return () => <View><Text>Profile Screen</Text></View>;
+});
+jest.mock('../../screens/MyEventsScreen', () => {
+  const { View, Text } = require('react-native');
+  return () => <View><Text>My Events Screen</Text></View>;
+});
 
 const renderWithAuth = (authValue) => {
   return render(

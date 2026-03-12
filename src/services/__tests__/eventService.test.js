@@ -1,7 +1,7 @@
-import { addDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { addDoc, deleteDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { saveEvent, fetchEvents, updateEvent, deleteEvent } from '../eventService';
+import { saveEvent, fetchEvents, updateEvent, deleteEvent, fetchUserEvents } from '../eventService';
 import { auth } from '../../config/firebase';
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -19,6 +19,7 @@ jest.mock('firebase/firestore', () => ({
   orderBy: jest.fn(),
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
   updateDoc: jest.fn(),
+  where: jest.fn(),
 }));
 
 jest.mock('../../config/firebase', () => ({
@@ -61,6 +62,28 @@ describe('eventService', () => {
       getDocs.mockRejectedValueOnce(new Error('Fetch failed'));
 
       await expect(fetchEvents()).rejects.toThrow('Fetch failed');
+    });
+  });
+
+  describe('fetchUserEvents', () => {
+    it('fetches only the current user events', async () => {
+      getDocs.mockResolvedValueOnce({
+        docs: [
+          { id: '1', data: () => ({ name: 'Mine', createdBy: 'test-uid' }) },
+        ],
+      });
+
+      const events = await fetchUserEvents('test-uid');
+
+      expect(query).toHaveBeenCalled();
+      expect(where).toHaveBeenCalledWith('createdBy', '==', 'test-uid');
+      expect(events).toEqual([{ id: '1', name: 'Mine', createdBy: 'test-uid' }]);
+    });
+
+    it('throws when user event fetch fails', async () => {
+      getDocs.mockRejectedValueOnce(new Error('User events failed'));
+
+      await expect(fetchUserEvents('test-uid')).rejects.toThrow('User events failed');
     });
   });
 

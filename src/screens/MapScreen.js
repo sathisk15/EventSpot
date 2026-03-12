@@ -62,6 +62,14 @@ const MapScreen = ({navigation}) => {
     loadInitialData();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      refreshEvents();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const resolveAddress = async (latitude, longitude) => {
     try {
       const response = await fetch(
@@ -314,7 +322,7 @@ const MapScreen = ({navigation}) => {
             100% { transform: scale(3); opacity: 0; }
           }
 
-          /* Modern Event Marker */
+          /* Droplet Event Marker */
           .custom-leaflet-marker {
             background: transparent;
             border: none;
@@ -322,10 +330,8 @@ const MapScreen = ({navigation}) => {
 
           .event-pin {
             position: relative;
-            width: 58px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            width: 56px;
+            height: 76px;
             animation: float-pin 3.2s ease-in-out infinite;
             transform-origin: center bottom;
           }
@@ -335,23 +341,24 @@ const MapScreen = ({navigation}) => {
             50% { transform: translateY(-5px); }
           }
 
-          .event-pin-head {
+          .event-pin-body {
             position: relative;
-            width: 58px;
-            height: 58px;
-            padding: 4px;
-            border-radius: 18px;
+            width: 56px;
+            height: 56px;
+            margin-top: 2px;
+            border-radius: 50% 50% 50% 0;
             background: rgba(255,255,255,0.96);
+            overflow: hidden;
+            transform: rotate(-45deg);
             box-shadow:
-              0 14px 24px rgba(15, 23, 42, 0.22),
-              0 6px 10px rgba(15, 23, 42, 0.12);
+              0 16px 28px rgba(15, 23, 42, 0.24),
+              0 8px 14px rgba(15, 23, 42, 0.12);
           }
 
           .event-pin-media {
-            position: relative;
-            width: 100%;
-             height: 100%;
-            border-radius: 14px;
+            position: absolute;
+            inset: 4px;
+            border-radius: 50% 50% 50% 0;
             overflow: hidden;
           }
 
@@ -362,30 +369,35 @@ const MapScreen = ({navigation}) => {
             background-position: center;
             background-repeat: no-repeat;
             display: block;
+            transform: rotate(45deg) scale(1.18);
+            transform-origin: center;
           }
 
           .event-pin-fallback {
-            position: relative;
-            z-index: 1;
-          }
-
-          .event-pin-stem {
-            width: 16px;
-            height: 18px;
-            margin-top: -2px;
-            background: rgba(255,255,255,0.96);
-            clip-path: polygon(50% 100%, 0 0, 100% 0);
-            filter: drop-shadow(0 5px 6px rgba(15, 23, 42, 0.18));
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.secondary});
+            color: white;
+            font-size: 18px;
+            font-weight: 800;
+            transform: rotate(45deg) scale(1.05);
+            transform-origin: center;
           }
 
           .event-pin-shadow {
-            width: 24px;
-            height: 8px;
-            margin-top: 2px;
+            position: absolute;
+            left: 50%;
+            bottom: 2px;
+            width: 26px;
+            height: 9px;
             border-radius: 999px;
             background: rgba(15, 23, 42, 0.2);
             filter: blur(3px);
-            opacity: 0.45;
+            opacity: 0.38;
+            transform: translateX(-50%);
           }
 
           /* Debug Counter Overlay */
@@ -444,17 +456,16 @@ const MapScreen = ({navigation}) => {
                   : '<span class="event-pin-fallback">' + badgeText + '</span>';
                 
                 var pinHtml = '<div class="event-pin">' +
-                                '<div class="event-pin-head">' +
+                                '<div class="event-pin-body">' +
                                   '<div class="event-pin-media">' + mediaHtml + '</div>' +
                                 '</div>' +
-                                '<div class="event-pin-stem"></div>' +
                                 '<div class="event-pin-shadow"></div>' +
                               '</div>';
 
                 var pinIcon = L.divIcon({
                   className: 'custom-leaflet-marker',
                   html: pinHtml,
-                  iconSize: [58, 84], iconAnchor: [29, 82]
+                  iconSize: [56, 76], iconAnchor: [28, 74]
                 });
                 
                 var marker = L.marker([lat, lng], { icon: pinIcon })
@@ -631,6 +642,11 @@ const MapScreen = ({navigation}) => {
                 visible={true}
                 icon={fabOpen ? 'close' : 'plus'}
                 actions={[
+                  {
+                    icon: 'calendar-account',
+                    label: 'My Events',
+                    onPress: () => navigation.navigate('MyEvents'),
+                  },
                   {
                     icon: 'calendar-plus',
                     label: 'Add Event',

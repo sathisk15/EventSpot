@@ -271,6 +271,18 @@ const ProfileScreen = ({ navigation }) => {
           </Button>
         </View>
 
+        <View style={styles.section}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>My Activity</Text>
+          <Button
+            mode="contained-tonal"
+            icon="calendar-account"
+            onPress={() => navigation.navigate('MyEvents')}
+            style={styles.button}
+          >
+            My Events
+          </Button>
+        </View>
+
         <View style={styles.logoutSection}>
           <Button 
             mode="contained-tonal" 

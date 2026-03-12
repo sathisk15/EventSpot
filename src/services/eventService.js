@@ -4,8 +4,10 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import * as FileSystem from 'expo-file-system/legacy';
 import { db, auth } from '../config/firebase';
@@ -149,6 +151,20 @@ export const fetchEvents = async () => {
     return events;
   } catch (error) {
     console.error("Error fetching events:", error);
+    throw error;
+  }
+};
+
+export const fetchUserEvents = async userId => {
+  try {
+    const eventsQuery = query(collection(db, 'events'), where('createdBy', '==', userId));
+    const querySnapshot = await getDocs(eventsQuery);
+    return querySnapshot.docs.map(docSnapshot => ({
+      id: docSnapshot.id,
+      ...docSnapshot.data(),
+    }));
+  } catch (error) {
+    console.error('Error fetching user events:', error);
     throw error;
   }
 };

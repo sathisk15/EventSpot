@@ -228,6 +228,16 @@ describe('ProfileScreen', () => {
     expect(mockNavigation.goBack).toHaveBeenCalled();
   });
 
+  it('navigates to My Events from profile', async () => {
+    const screen = renderWithUser();
+
+    await waitForInitialProfileLoad(screen);
+
+    fireEvent.press(screen.getByText('My Events'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('MyEvents');
+  });
+
   it('uploads a profile image successfully', async () => {
     ImagePicker.requestMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: true });
     ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({

@@ -54,6 +54,7 @@ const mockUser = {
 const mockNavigation = {
   navigate: jest.fn(),
   goBack: jest.fn(),
+  addListener: jest.fn(),
 };
 
 const providers = ({ children }) => (
@@ -85,6 +86,7 @@ const createFetchMock = ({ reverseAddress = 'Resolved Address', searchResults } 
   });
 
 describe('MapScreen', () => {
+  let focusListener;
   const mockEvents = [{
     id: 'ev1',
     name: 'Cool Concert',
@@ -96,6 +98,13 @@ describe('MapScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    focusListener = undefined;
+    mockNavigation.addListener.mockImplementation((eventName, callback) => {
+      if (eventName === 'focus') {
+        focusListener = callback;
+      }
+      return jest.fn();
+    });
     
     // Default mocks
     Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
@@ -126,6 +135,35 @@ describe('MapScreen', () => {
       expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
       expect(fetchEvents).toHaveBeenCalled();
       expect(queryByText('Mapping your world...')).toBeNull();
+    });
+  });
+
+  it('refreshes events when the map screen regains focus', async () => {
+    fetchEvents
+      .mockResolvedValueOnce(mockEvents)
+      .mockResolvedValueOnce([
+        {
+          id: 'ev2',
+          name: 'Fresh Event',
+          location: { latitude: 52, longitude: 18, address: 'Fresh Hall' },
+          date: new Date().toISOString(),
+          createdBy: 'test-user-id',
+          creatorEmail: 'test@example.com',
+        },
+      ]);
+
+    render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => {
+      expect(fetchEvents).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await focusListener?.();
+    });
+
+    await waitFor(() => {
+      expect(fetchEvents).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -346,6 +384,17 @@ describe('MapScreen', () => {
     
     expect(getByText('Create Event Mock')).toBeTruthy();
     expect(getByText('No Initial Location')).toBeTruthy();
+  });
+
+  it('navigates to My Events from the FAB menu', async () => {
+    const { getByText, getByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent.press(getByTestId('fab-toggle'));
+    fireEvent.press(getByText('My Events'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('MyEvents');
   });
 
   it('logs refresh failures after saving a new event', async () => {
