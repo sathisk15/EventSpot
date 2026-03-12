@@ -97,6 +97,7 @@ const MyEventsScreen = ({ navigation }) => {
                   {event.name}
                 </Text>
                 <View style={styles.metaRow}>
+                  {event.category ? <Chip icon="shape">{event.category}</Chip> : null}
                   <Chip icon="calendar">{formatEventDate(event)}</Chip>
                   <Chip icon="clock-outline">{formatEventTime(event)}</Chip>
                 </View>

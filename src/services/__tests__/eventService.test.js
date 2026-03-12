@@ -91,6 +91,7 @@ describe('eventService', () => {
     const eventData = {
       name: 'Test Event',
       description: 'Description',
+      category: 'Music',
       date: '2026-03-12T12:00:00.000Z',
       startDate: '2026-03-12T12:00:00.000Z',
       endDate: '2026-03-12T14:00:00.000Z',
@@ -125,6 +126,7 @@ describe('eventService', () => {
         undefined,
         expect.objectContaining({
           name: 'Test Event',
+          category: 'Music',
           startDate: '2026-03-12T12:00:00.000Z',
           endDate: '2026-03-12T14:00:00.000Z',
           durationMinutes: 120,
@@ -236,6 +238,7 @@ describe('eventService', () => {
     const eventData = {
       name: 'Updated Event',
       description: 'Updated Description',
+      category: 'Networking',
       date: '2026-03-12T12:00:00.000Z',
       startDate: '2026-03-12T12:00:00.000Z',
       endDate: '2026-03-12T15:00:00.000Z',
@@ -259,6 +262,7 @@ describe('eventService', () => {
         undefined,
         expect.objectContaining({
           name: 'Updated Event',
+          category: 'Networking',
           images: [
             'https://example.com/existing.jpg',
             expect.stringContaining('token=updated-token'),

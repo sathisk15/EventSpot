@@ -11,6 +11,7 @@ const mockEvent = {
   id: '1',
   name: 'Summer Concert',
   description: 'An amazing outdoor concert by the lake.',
+  category: 'Music',
   date: '2026-07-15T19:00:00.000Z',
   startDate: '2026-07-15T19:00:00.000Z',
   endDate: '2026-07-15T21:30:00.000Z',
@@ -45,6 +46,7 @@ describe('EventDetailModal', () => {
     expect(getByText('Event Details')).toBeTruthy();
     expect(getByText('Summer Concert')).toBeTruthy();
     expect(getByText('An amazing outdoor concert by the lake.')).toBeTruthy();
+    expect(getByText('Music')).toBeTruthy();
     expect(getByText('test@example.com')).toBeTruthy();
     expect(getByText('Central Park, NY')).toBeTruthy();
     expect(

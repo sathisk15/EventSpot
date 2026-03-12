@@ -87,6 +87,7 @@ const buildEventPayload = async (eventData, user, { isUpdate = false } = {}) => 
   return {
     name: eventData.name,
     description: eventData.description,
+    category: eventData.category || null,
     date: startDate,
     startDate,
     endDate,

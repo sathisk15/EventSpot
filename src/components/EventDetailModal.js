@@ -93,6 +93,11 @@ const EventDetailModal = ({ visible, onDismiss, event, currentUserId, onEdit, on
             </View>
 
             <View style={styles.chipRow}>
+              {event.category ? (
+                <Chip icon="shape" style={styles.chip}>
+                  {event.category}
+                </Chip>
+              ) : null}
               <Chip icon="calendar" style={styles.chip}>{eventStartDate.toLocaleDateString()}</Chip>
               <Chip icon="clock-start" style={styles.chip}>
                 From {eventStartDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

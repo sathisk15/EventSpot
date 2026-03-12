@@ -24,6 +24,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { EVENT_CATEGORIES } from '../constants/eventCategories';
 
 const DEFAULT_EVENT_DURATION_MINUTES = 60;
 
@@ -122,6 +123,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
   const defaultSchedule = React.useMemo(() => createDefaultSchedule(), []);
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
   const [startDate, setStartDate] = useState(defaultSchedule.start);
   const [endDate, setEndDate] = useState(defaultSchedule.end);
   const [activePicker, setActivePicker] = useState(null);
@@ -146,6 +148,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
 
       setEventName(initialEvent?.name || '');
       setDescription(initialEvent?.description || '');
+      setCategory(initialEvent?.category || '');
       setStartDate(nextSchedule.start);
       setEndDate(nextSchedule.end);
       setImages((initialEvent?.images || []).map(uri => ({ uri })));
@@ -285,6 +288,11 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
       return;
     }
 
+    if (!category) {
+      Alert.alert('Missing Info', 'Please select an event category.');
+      return;
+    }
+
     if (durationMinutes <= 0) {
       Alert.alert('Invalid Time Range', 'End time must be after the start time.');
       return;
@@ -295,6 +303,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
       await onSave({
         name: eventName,
         description,
+        category,
         date: startDate.toISOString(),
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -305,6 +314,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
       // Reset form
       setEventName('');
       setDescription('');
+      setCategory('');
       setImages([]);
       const nextSchedule = createDefaultSchedule();
       setStartDate(nextSchedule.start);
@@ -401,6 +411,29 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
             style={styles.input}
           />
 
+          <View style={styles.categorySection}>
+            <Text variant="labelLarge" style={styles.sectionTitle}>Category</Text>
+            <View style={styles.categoryRow}>
+              {EVENT_CATEGORIES.map(option => {
+                const selected = category === option;
+                return (
+                  <Chip
+                    key={option}
+                    selected={selected}
+                    showSelectedCheck={selected}
+                    onPress={() => setCategory(option)}
+                    style={[
+                      styles.categoryChip,
+                      selected ? { backgroundColor: theme.colors.primaryContainer } : null,
+                    ]}
+                  >
+                    {option}
+                  </Chip>
+                );
+              })}
+            </View>
+          </View>
+
           <View style={styles.dateTimeSection}>
             <Text variant="labelLarge" style={styles.sectionTitle}>Schedule</Text>
 
@@ -496,6 +529,9 @@ const styles = StyleSheet.create({
   dateTimeSection: {
     marginBottom: 16,
   },
+  categorySection: {
+    marginBottom: 16,
+  },
   searchBar: {
     elevation: 2,
     backgroundColor: 'white',
@@ -515,6 +551,15 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  categoryChip: {
+    marginBottom: 8,
   },
   sectionTitle: {
     marginTop: 8,

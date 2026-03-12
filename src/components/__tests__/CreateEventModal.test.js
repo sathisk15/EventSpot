@@ -37,6 +37,8 @@ describe('CreateEventModal', () => {
 
     expect(getByText('Create Event')).toBeTruthy();
     expect(getByPlaceholderText('Search location...')).toBeTruthy();
+    expect(getByText('Category')).toBeTruthy();
+    expect(getByText('Music')).toBeTruthy();
     expect(getByText('Starts On')).toBeTruthy();
     expect(getByText('End Time')).toBeTruthy();
     expect(getByText('Duration: 1h')).toBeTruthy();
@@ -47,6 +49,7 @@ describe('CreateEventModal', () => {
 
     fireEvent.changeText(getByLabelText('Event Name'), 'My Birthday Party');
     fireEvent.changeText(getByLabelText('Description'), 'Pizza and cake at my place!');
+    fireEvent.press(getByText('Music'));
     fireEvent.press(getByText('Save'));
 
     await waitFor(() => {
@@ -54,6 +57,7 @@ describe('CreateEventModal', () => {
         expect.objectContaining({
           name: 'My Birthday Party',
           description: 'Pizza and cake at my place!',
+          category: 'Music',
           location: defaultProps.initialLocation,
           date: expect.any(String),
           startDate: expect.any(String),
@@ -93,6 +97,19 @@ describe('CreateEventModal', () => {
     expect(Alert.alert).toHaveBeenCalledWith(
       'Missing Info',
       'Please provide a name and description for the event.'
+    );
+  });
+
+  it('shows alert if no category is selected', () => {
+    const { getByText, getByLabelText } = render(<CreateEventModal {...defaultProps} />);
+
+    fireEvent.changeText(getByLabelText('Event Name'), 'Category Missing');
+    fireEvent.changeText(getByLabelText('Description'), 'Description');
+    fireEvent.press(getByText('Save'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Missing Info',
+      'Please select an event category.'
     );
   });
 
@@ -193,11 +210,13 @@ describe('CreateEventModal', () => {
 
     fireEvent.changeText(getByLabelText('Event Name'), 'Photo Event');
     fireEvent.changeText(getByLabelText('Description'), 'With an image');
+    fireEvent.press(getByText('Sports'));
     fireEvent.press(getByText('Save'));
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledWith(
         expect.objectContaining({
+          category: 'Sports',
           images: ['file://picked-image.jpg'],
         })
       );
@@ -211,11 +230,32 @@ describe('CreateEventModal', () => {
 
     fireEvent.changeText(getByLabelText('Event Name'), 'Test');
     fireEvent.changeText(getByLabelText('Description'), 'Desc');
+    fireEvent.press(getByText('Other'));
     fireEvent.press(getByText('Save'));
 
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith('Error', 'Failed to save event.');
     });
+  });
+
+  it('prefills the selected category when editing an event', () => {
+    const initialEvent = {
+      name: 'Existing Event',
+      description: 'Existing Description',
+      category: 'Food',
+      startDate: '2026-03-12T12:00:00.000Z',
+      endDate: '2026-03-12T13:00:00.000Z',
+      images: [],
+      location: defaultProps.initialLocation,
+    };
+
+    const { getByText } = render(
+      <CreateEventModal {...defaultProps} initialEvent={initialEvent} />
+    );
+
+    expect(getByText('Edit Event')).toBeTruthy();
+    expect(getByText('Food')).toBeTruthy();
+    expect(getByText('Update')).toBeTruthy();
   });
 
   it('handles search input clearing', () => {

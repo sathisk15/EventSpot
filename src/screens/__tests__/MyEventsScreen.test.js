@@ -44,6 +44,7 @@ const mockEvents = [
     id: 'ev1',
     name: 'My Concert',
     description: 'Owned by me',
+    category: 'Music',
     date: '2026-03-12T12:00:00.000Z',
     startDate: '2026-03-12T12:00:00.000Z',
     createdBy: 'test-user-id',
@@ -74,6 +75,7 @@ describe('MyEventsScreen', () => {
     await waitFor(() => {
       expect(fetchUserEvents).toHaveBeenCalledWith('test-user-id');
       expect(screen.getByText('My Concert')).toBeTruthy();
+      expect(screen.getByText('Music')).toBeTruthy();
       expect(screen.getByText('Main Square')).toBeTruthy();
     });
   });
