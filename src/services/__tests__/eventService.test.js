@@ -1,7 +1,15 @@
-import { addDoc, deleteDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, deleteDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { saveEvent, fetchEvents, updateEvent, deleteEvent, fetchUserEvents } from '../eventService';
+import {
+  saveEvent,
+  fetchEvents,
+  updateEvent,
+  deleteEvent,
+  fetchUserEvents,
+  subscribeToEvents,
+  subscribeToUserEvents,
+} from '../eventService';
 import { auth } from '../../config/firebase';
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -15,6 +23,7 @@ jest.mock('firebase/firestore', () => ({
   deleteDoc: jest.fn(),
   doc: jest.fn(),
   getDocs: jest.fn(),
+  onSnapshot: jest.fn(),
   query: jest.fn(),
   orderBy: jest.fn(),
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
@@ -84,6 +93,63 @@ describe('eventService', () => {
       getDocs.mockRejectedValueOnce(new Error('User events failed'));
 
       await expect(fetchUserEvents('test-uid')).rejects.toThrow('User events failed');
+    });
+  });
+
+  describe('realtime subscriptions', () => {
+    it('subscribes to all events and maps snapshots', () => {
+      const unsubscribe = jest.fn();
+      const onEvents = jest.fn();
+
+      onSnapshot.mockImplementationOnce((_queryRef, onNext) => {
+        onNext({
+          docs: [
+            { id: '1', data: () => ({ name: 'Live Event' }) },
+          ],
+        });
+        return unsubscribe;
+      });
+
+      const result = subscribeToEvents(onEvents);
+
+      expect(onEvents).toHaveBeenCalledWith([{ id: '1', name: 'Live Event' }]);
+      expect(result).toBe(unsubscribe);
+    });
+
+    it('subscribes to user events and builds the owner query', () => {
+      const unsubscribe = jest.fn();
+      const onEvents = jest.fn();
+
+      onSnapshot.mockImplementationOnce((_queryRef, onNext) => {
+        onNext({
+          docs: [
+            { id: 'mine', data: () => ({ name: 'Mine', createdBy: 'test-uid' }) },
+          ],
+        });
+        return unsubscribe;
+      });
+
+      const result = subscribeToUserEvents('test-uid', onEvents);
+
+      expect(where).toHaveBeenCalledWith('createdBy', '==', 'test-uid');
+      expect(query).toHaveBeenCalled();
+      expect(onEvents).toHaveBeenCalledWith([
+        { id: 'mine', name: 'Mine', createdBy: 'test-uid' },
+      ]);
+      expect(result).toBe(unsubscribe);
+    });
+
+    it('forwards realtime subscription errors', () => {
+      const onError = jest.fn();
+
+      onSnapshot.mockImplementationOnce((_queryRef, _onNext, snapshotError) => {
+        snapshotError(new Error('Realtime failed'));
+        return jest.fn();
+      });
+
+      subscribeToEvents(jest.fn(), onError);
+
+      expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 

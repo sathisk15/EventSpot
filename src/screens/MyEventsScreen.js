@@ -4,7 +4,12 @@ import { Appbar, Button, Card, Chip, Text, useTheme } from 'react-native-paper';
 
 import { AuthContext } from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
-import { deleteEvent, fetchUserEvents, updateEvent } from '../services/eventService';
+import {
+  deleteEvent,
+  fetchUserEvents,
+  subscribeToUserEvents,
+  updateEvent,
+} from '../services/eventService';
 
 const formatEventDate = event => new Date(event.startDate || event.date).toLocaleDateString();
 
@@ -21,6 +26,28 @@ const MyEventsScreen = ({ navigation }) => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState(null);
+
+  const startMyEventsSubscription = () => {
+    if (!user?.uid) {
+      setEvents([]);
+      setLoading(false);
+      return () => {};
+    }
+
+    setLoading(true);
+    return subscribeToUserEvents(
+      user.uid,
+      userEvents => {
+        setEvents(userEvents);
+        setLoading(false);
+      },
+      error => {
+        console.error('My events load failed:', error);
+        Alert.alert('Error', 'Failed to load your events.');
+        setLoading(false);
+      },
+    );
+  };
 
   const loadMyEvents = async () => {
     if (!user?.uid) {
@@ -43,6 +70,10 @@ const MyEventsScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadMyEvents();
+    const unsubscribe = startMyEventsSubscription();
+    return () => {
+      unsubscribe?.();
+    };
   }, [user?.uid]);
 
   const handleUpdateEvent = async eventData => {

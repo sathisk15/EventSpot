@@ -4,10 +4,16 @@ import { Alert } from 'react-native';
 
 import MyEventsScreen from '../MyEventsScreen';
 import { AuthContext } from '../../contexts/AuthContext';
-import { deleteEvent, fetchUserEvents, updateEvent } from '../../services/eventService';
+import {
+  deleteEvent,
+  fetchUserEvents,
+  subscribeToUserEvents,
+  updateEvent,
+} from '../../services/eventService';
 
 jest.mock('../../services/eventService', () => ({
   fetchUserEvents: jest.fn(),
+  subscribeToUserEvents: jest.fn(),
   updateEvent: jest.fn(),
   deleteEvent: jest.fn(),
 }));
@@ -63,9 +69,16 @@ const renderScreen = () =>
   );
 
 describe('MyEventsScreen', () => {
+  let userEventsSubscriptionHandler;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    userEventsSubscriptionHandler = undefined;
     fetchUserEvents.mockResolvedValue(mockEvents);
+    subscribeToUserEvents.mockImplementation((_userId, onEvents) => {
+      userEventsSubscriptionHandler = onEvents;
+      return jest.fn();
+    });
     updateEvent.mockResolvedValue({});
     deleteEvent.mockResolvedValue();
   });
@@ -87,6 +100,38 @@ describe('MyEventsScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No events yet')).toBeTruthy();
+    });
+  });
+
+  it('updates the list when the realtime subscription pushes new events', async () => {
+    const screen = renderScreen();
+
+    await waitFor(() => {
+      expect(subscribeToUserEvents).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.any(Function),
+        expect.any(Function),
+      );
+    });
+
+    userEventsSubscriptionHandler?.([
+      {
+        id: 'ev-live',
+        name: 'Realtime Event',
+        description: 'Now live',
+        category: 'Networking',
+        date: '2026-03-12T12:00:00.000Z',
+        startDate: '2026-03-12T12:00:00.000Z',
+        createdBy: 'test-user-id',
+        creatorEmail: 'test@example.com',
+        images: [],
+        location: { address: 'Realtime Square' },
+      },
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Realtime Event')).toBeTruthy();
+      expect(screen.getByText('Realtime Square')).toBeTruthy();
     });
   });
 

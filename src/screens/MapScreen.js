@@ -25,7 +25,13 @@ import * as Location from 'expo-location';
 import {AuthContext} from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
-import {saveEvent, fetchEvents, updateEvent, deleteEvent} from '../services/eventService';
+import {
+  fetchEvents,
+  saveEvent,
+  updateEvent,
+  deleteEvent,
+  subscribeToEvents,
+} from '../services/eventService';
 import {EVENT_CATEGORIES} from '../constants/eventCategories';
 
 const formatCoordinateFallback = (latitude, longitude) =>
@@ -109,6 +115,21 @@ const MapScreen = ({navigation}) => {
   }, [navigation]);
 
   useEffect(() => {
+    const unsubscribe = subscribeToEvents(
+      nextEvents => {
+        setEvents(nextEvents);
+      },
+      () => {
+        Alert.alert('Error', 'Failed to sync events in real time.');
+      },
+    );
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!webViewRef.current) {
       return;
     }
@@ -184,16 +205,23 @@ const MapScreen = ({navigation}) => {
     });
   };
 
+  const refreshEvents = async () => {
+    try {
+      const fetchedEvents = await fetchEvents();
+      setEvents(fetchedEvents);
+    } catch (error) {
+      console.error('Refresh events error:', error);
+    }
+  };
+
   const loadInitialData = async () => {
     setLoading(true);
     try {
       // 1. Fetch Location
       const loc = await getDeviceCoordinates();
       setLocation(loc);
+      await refreshEvents();
 
-      // 2. Fetch Events
-      const fetchedEvents = await fetchEvents();
-      setEvents(fetchedEvents);
     } catch (error) {
       console.error('Initialization error:', error);
       if (error.message === 'Location permission is required to center the map.') {
@@ -205,15 +233,6 @@ const MapScreen = ({navigation}) => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const refreshEvents = async () => {
-    try {
-      const fetchedEvents = await fetchEvents();
-      setEvents(fetchedEvents);
-    } catch (error) {
-      console.error('Refresh events error:', error);
     }
   };
 
@@ -311,7 +330,6 @@ const MapScreen = ({navigation}) => {
       setModalVisible(false);
       setModalInitialLocation(null);
       setEditingEvent(null);
-      await refreshEvents();
     } catch (error) {
       console.error(error);
       throw error;
@@ -351,7 +369,6 @@ const MapScreen = ({navigation}) => {
       setSelectedEvent(null);
       setEditingEvent(null);
       Alert.alert('Success', 'Event deleted successfully!');
-      await refreshEvents();
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to delete event.');

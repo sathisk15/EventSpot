@@ -3,7 +3,13 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import MapScreen from '../MapScreen';
 import { AuthContext } from '../../contexts/AuthContext';
 import * as Location from 'expo-location';
-import { fetchEvents, saveEvent, updateEvent, deleteEvent } from '../../services/eventService';
+import {
+  fetchEvents,
+  saveEvent,
+  updateEvent,
+  deleteEvent,
+  subscribeToEvents,
+} from '../../services/eventService';
 import { Alert } from 'react-native';
 // Alert is mocked in jest.setup.js
 
@@ -13,6 +19,7 @@ jest.mock('../../services/eventService', () => ({
   saveEvent: jest.fn(),
   updateEvent: jest.fn(),
   deleteEvent: jest.fn(),
+  subscribeToEvents: jest.fn(),
 }));
 
 // Mock Modals to isolate MapScreen tests
@@ -87,6 +94,7 @@ const createFetchMock = ({ reverseAddress = 'Resolved Address', searchResults } 
 
 describe('MapScreen', () => {
   let focusListener;
+  let eventsSubscriptionHandler;
   const mockEvents = [{
     id: 'ev1',
     name: 'Cool Concert',
@@ -103,6 +111,7 @@ describe('MapScreen', () => {
       global.__WEBVIEW_POST_MESSAGE_MOCK__.mockClear();
     }
     focusListener = undefined;
+    eventsSubscriptionHandler = undefined;
     mockNavigation.addListener.mockImplementation((eventName, callback) => {
       if (eventName === 'focus') {
         focusListener = callback;
@@ -120,6 +129,11 @@ describe('MapScreen', () => {
     saveEvent.mockResolvedValue({});
     updateEvent.mockResolvedValue({});
     deleteEvent.mockResolvedValue();
+    subscribeToEvents.mockImplementation(onEvents => {
+      eventsSubscriptionHandler = onEvents;
+      onEvents(mockEvents);
+      return jest.fn();
+    });
     global.fetch = createFetchMock();
   });
 
@@ -168,6 +182,31 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(fetchEvents).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('updates the map when the realtime event subscription pushes new data', async () => {
+    const { getByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => {
+      expect(subscribeToEvents).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      eventsSubscriptionHandler?.([
+        {
+          id: 'ev-live',
+          name: 'Live Event',
+          location: { latitude: 50.1, longitude: 19.9, address: 'Live Hall' },
+          date: new Date().toISOString(),
+          createdBy: 'someone-else',
+          creatorEmail: 'live@example.com',
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('webview-mock').props.source.html).toContain('Live Event');
     });
   });
 
@@ -240,7 +279,7 @@ describe('MapScreen', () => {
   it('opens EventDetailModal when an event is clicked', async () => {
     const { getByTestId, getByText, queryByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
 
-    await waitFor(() => expect(queryByText('Mapping your world...')).toBeNull());
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
     const webview = getByTestId('webview-mock');
     
@@ -534,13 +573,7 @@ describe('MapScreen', () => {
     expect(mockNavigation.navigate).toHaveBeenCalledWith('MyEvents');
   });
 
-  it('logs refresh failures after saving a new event', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    saveEvent.mockResolvedValueOnce({});
-    fetchEvents
-      .mockResolvedValueOnce(mockEvents)
-      .mockRejectedValueOnce(new Error('Refresh failed'));
-
+  it('saves a new event without depending on a manual refresh', async () => {
     const { getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
@@ -550,16 +583,13 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(saveEvent).toHaveBeenCalledWith({ name: 'New' });
-      expect(consoleSpy).toHaveBeenCalledWith('Refresh events error:', expect.any(Error));
     });
-
-    consoleSpy.mockRestore();
   });
 
   it('handles modal dismissals', async () => {
     const { getByText, queryByText, getByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
     
-    await waitFor(() => expect(queryByText('Mapping your world...')).toBeNull());
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
     
     // Open and dismiss CreateEventModal
     fireEvent.press(getByText('Add Event'));

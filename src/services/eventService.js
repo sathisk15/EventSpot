@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   updateDoc,
@@ -100,6 +101,12 @@ const buildEventPayload = async (eventData, user, { isUpdate = false } = {}) => 
   };
 };
 
+const mapSnapshotToEvents = querySnapshot =>
+  querySnapshot.docs.map(docSnapshot => ({
+    id: docSnapshot.id,
+    ...docSnapshot.data(),
+  }));
+
 export const saveEvent = async eventData => {
   try {
     const user = getAuthenticatedUser();
@@ -144,10 +151,7 @@ export const fetchEvents = async () => {
     console.log("Fetching events from Firestore...");
     const eventsQuery = collection(db, 'events'); // Simplified query
     const querySnapshot = await getDocs(eventsQuery);
-    const events = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const events = mapSnapshotToEvents(querySnapshot);
     console.log(`Fetched ${events.length} events:`, events);
     return events;
   } catch (error) {
@@ -160,12 +164,37 @@ export const fetchUserEvents = async userId => {
   try {
     const eventsQuery = query(collection(db, 'events'), where('createdBy', '==', userId));
     const querySnapshot = await getDocs(eventsQuery);
-    return querySnapshot.docs.map(docSnapshot => ({
-      id: docSnapshot.id,
-      ...docSnapshot.data(),
-    }));
+    return mapSnapshotToEvents(querySnapshot);
   } catch (error) {
     console.error('Error fetching user events:', error);
     throw error;
   }
 };
+
+export const subscribeToEvents = (onEvents, onError) =>
+  onSnapshot(
+    collection(db, 'events'),
+    querySnapshot => {
+      onEvents(mapSnapshotToEvents(querySnapshot));
+    },
+    error => {
+      console.error('Realtime events subscription error:', error);
+      if (onError) {
+        onError(error);
+      }
+    },
+  );
+
+export const subscribeToUserEvents = (userId, onEvents, onError) =>
+  onSnapshot(
+    query(collection(db, 'events'), where('createdBy', '==', userId)),
+    querySnapshot => {
+      onEvents(mapSnapshotToEvents(querySnapshot));
+    },
+    error => {
+      console.error('Realtime user events subscription error:', error);
+      if (onError) {
+        onError(error);
+      }
+    },
+  );
