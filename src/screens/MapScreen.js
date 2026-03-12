@@ -35,6 +35,7 @@ import {
   subscribeToEvents,
 } from '../services/eventService';
 import {EVENT_CATEGORIES} from '../constants/eventCategories';
+import { fetchRealtimeEventsPreference } from '../services/userPreferencesService';
 
 const formatCoordinateFallback = (latitude, longitude) =>
   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
@@ -105,6 +106,7 @@ const MapScreen = ({navigation, route}) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalInitialLocation, setModalInitialLocation] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [realtimeEventsEnabled, setRealtimeEventsEnabled] = useState(false);
   const showMapChrome = isFocused && !modalVisible && !detailVisible;
 
   const hasActiveSearchOrFilters = Boolean(
@@ -120,6 +122,7 @@ const MapScreen = ({navigation, route}) => {
 
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
+      loadRealtimePreference();
       refreshEvents();
     });
 
@@ -127,6 +130,14 @@ const MapScreen = ({navigation, route}) => {
   }, [navigation]);
 
   useEffect(() => {
+    loadRealtimePreference();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!realtimeEventsEnabled) {
+      return undefined;
+    }
+
     const unsubscribe = subscribeToEvents(
       nextEvents => {
         setEvents(nextEvents);
@@ -139,7 +150,7 @@ const MapScreen = ({navigation, route}) => {
     return () => {
       unsubscribe?.();
     };
-  }, []);
+  }, [realtimeEventsEnabled]);
 
   useEffect(() => {
     if (!webViewRef.current) {
@@ -198,6 +209,16 @@ const MapScreen = ({navigation, route}) => {
   const postMapMessage = payload => {
     webViewRef.current?.postMessage(JSON.stringify(payload));
   };
+
+  async function loadRealtimePreference() {
+    try {
+      const enabled = await fetchRealtimeEventsPreference(user?.uid);
+      setRealtimeEventsEnabled(enabled);
+    } catch (error) {
+      console.error('Realtime preference load failed:', error);
+      setRealtimeEventsEnabled(false);
+    }
+  }
 
   const resolveAddress = async (latitude, longitude) => {
     try {
@@ -296,12 +317,10 @@ const MapScreen = ({navigation, route}) => {
     setSearchLoading(true);
     setShowResults(true);
     try {
-      console.log('Searching Nominatim for:', query);
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
         {headers: {'User-Agent': 'EventSpotApp/1.0'}},
       );
-      console.log('Nominatim response status:', response.status);
       const data = await response.json();
       setSearchResults(data);
     } catch (error) {
@@ -564,21 +583,11 @@ const MapScreen = ({navigation, route}) => {
             transform: translateX(-50%);
           }
 
-          /* Debug Counter Overlay */
-          #debug-counter {
-            position: fixed; top: 10px; left: 10px;
-            background: rgba(0,0,0,0.7); color: white;
-            padding: 5px 10px; border-radius: 15px;
-            font-size: 10px; z-index: 9999;
-            font-family: sans-serif; pointer-events: none;
-          }
         </style>
       </head>
       <body>
-        <div id="debug-counter">Event Count: 0</div>
         <div id="map"></div>
         <script>
-          function log(msg) { window.ReactNativeWebView.postMessage(JSON.stringify({type: 'LOG', msg: msg})); }
           function sendEventClick(eventId) { 
              window.ReactNativeWebView.postMessage(JSON.stringify({type: 'EVENT_CLICK', id: eventId})); 
           }
@@ -600,9 +609,6 @@ const MapScreen = ({navigation, route}) => {
           var eventMarkersLayer = L.layerGroup().addTo(map);
 
           function renderEvents(eventList) {
-            log("Leaflet: Rendering " + eventList.length + " events.");
-            document.getElementById('debug-counter').innerText = "Event Count: " + eventList.length;
-            
             eventMarkersLayer.clearLayers();
             eventList.forEach(function(ev) {
               if (ev.location && ev.location.latitude !== undefined) {
@@ -610,7 +616,6 @@ const MapScreen = ({navigation, route}) => {
                 var lng = parseFloat(ev.location.longitude);
                 
                 if (isNaN(lat) || isNaN(lng)) {
-                  log("Leaflet: Invalid coordinates for event: " + ev.name);
                   return;
                 }
 
@@ -638,8 +643,6 @@ const MapScreen = ({navigation, route}) => {
                 marker.on('click', function() {
                   sendEventClick(ev.id);
                 });
-              } else {
-                log("Leaflet: Skipping event due to missing location field: " + (ev.name || ev.id));
               }
             });
           }
@@ -677,7 +680,6 @@ const MapScreen = ({navigation, route}) => {
             try {
               data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
             } catch (error) {
-              log('Leaflet: Failed to parse native message');
               return;
             }
 
@@ -898,13 +900,7 @@ const MapScreen = ({navigation, route}) => {
               javaScriptEnabled={true}
               onMessage={event => {
                 const data = JSON.parse(event.nativeEvent.data);
-                if (data.type === 'LOG') {
-                  console.log('Leaflet Log:', data.msg);
-                } else if (data.type === 'READY') {
-                  console.log(
-                    'Leaflet is ready, pushing initial events:',
-                    events.length,
-                  );
+                if (data.type === 'READY') {
                   if (location) {
                     webViewRef.current?.postMessage(
                       JSON.stringify({

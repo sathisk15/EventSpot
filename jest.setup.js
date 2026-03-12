@@ -225,6 +225,15 @@ jest.mock('react-native-paper', () => {
         <View><Text>{children}</Text></View>
       </TouchableOpacity>
     ),
+    Switch: ({ value, onValueChange, testID, disabled }) => (
+      <TouchableOpacity
+        testID={testID}
+        onPress={() => onValueChange?.(!value)}
+        disabled={disabled}
+      >
+        <Text>{value ? 'switch-on' : 'switch-off'}</Text>
+      </TouchableOpacity>
+    ),
     Text: ({ children, style }) => <Text style={style}>{children}</Text>,
     Avatar: {
       Text: ({ label }) => <View><Text>{label}</Text></View>,

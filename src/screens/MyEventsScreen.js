@@ -10,6 +10,7 @@ import {
   subscribeToUserEvents,
   updateEvent,
 } from '../services/eventService';
+import { fetchRealtimeEventsPreference } from '../services/userPreferencesService';
 
 const formatEventDate = event => new Date(event.startDate || event.date).toLocaleDateString();
 
@@ -26,6 +27,17 @@ const MyEventsScreen = ({ navigation }) => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [realtimeEventsEnabled, setRealtimeEventsEnabled] = useState(false);
+
+  async function loadRealtimePreference() {
+    try {
+      const enabled = await fetchRealtimeEventsPreference(user?.uid);
+      setRealtimeEventsEnabled(enabled);
+    } catch (error) {
+      console.error('Realtime preference load failed:', error);
+      setRealtimeEventsEnabled(false);
+    }
+  }
 
   const startMyEventsSubscription = () => {
     if (!user?.uid) {
@@ -69,12 +81,29 @@ const MyEventsScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
+    loadRealtimePreference();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      loadRealtimePreference();
+      loadMyEvents();
+    });
+
+    return unsubscribe;
+  }, [navigation, user?.uid]);
+
+  useEffect(() => {
     loadMyEvents();
+    if (!realtimeEventsEnabled) {
+      return undefined;
+    }
+
     const unsubscribe = startMyEventsSubscription();
     return () => {
       unsubscribe?.();
     };
-  }, [user?.uid]);
+  }, [realtimeEventsEnabled, user?.uid]);
 
   const handleUpdateEvent = async eventData => {
     try {

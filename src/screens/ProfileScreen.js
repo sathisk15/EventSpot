@@ -20,6 +20,7 @@ import {
   Portal,
   Modal,
   IconButton,
+  Switch,
 } from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
@@ -28,6 +29,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { auth, storage, db } from '../config/firebase';
 import { AuthContext } from '../contexts/AuthContext';
+import { saveRealtimeEventsPreference } from '../services/userPreferencesService';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
@@ -41,9 +43,11 @@ const ProfileScreen = ({ navigation }) => {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [savingPreference, setSavingPreference] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [realtimeEventsEnabled, setRealtimeEventsEnabled] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -54,6 +58,9 @@ const ProfileScreen = ({ navigation }) => {
             const data = userDoc.data();
             setBio(data.bio || '');
             setSocialLink(data.socialLink || '');
+            setRealtimeEventsEnabled(Boolean(data.realtimeEventsEnabled));
+          } else {
+            setRealtimeEventsEnabled(false);
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -108,6 +115,24 @@ const ProfileScreen = ({ navigation }) => {
     ]);
   };
 
+  const handleToggleRealtime = async () => {
+    const nextValue = !realtimeEventsEnabled;
+    setRealtimeEventsEnabled(nextValue);
+    setSavingPreference(true);
+    setMessage('');
+    setErrorMsg('');
+
+    try {
+      await saveRealtimeEventsPreference(user.uid, nextValue);
+      setMessage('Settings updated successfully!');
+    } catch (error) {
+      setRealtimeEventsEnabled(!nextValue);
+      setErrorMsg('Failed to update realtime event setting.');
+    } finally {
+      setSavingPreference(false);
+    }
+  };
+
   const uploadImage = async (uri) => {
     if (!uri) return;
 
@@ -147,7 +172,7 @@ const ProfileScreen = ({ navigation }) => {
       setMessage("Profile picture updated successfully!");
       setModalVisible(false);
     } catch (error) {
-       console.log("Native Upload error:", error);
+       console.error("Native Upload error:", error);
        setErrorMsg("Image upload failed: " + error.message);
     } finally {
       setUploadingImage(false);
@@ -368,6 +393,33 @@ const ProfileScreen = ({ navigation }) => {
 
           <View
             style={[
+              styles.section,
+              styles.sectionCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
+          >
+            <Text variant="titleMedium" style={styles.sectionTitle}>App Settings</Text>
+            <View style={styles.preferenceRow}>
+              <View style={styles.preferenceCopy}>
+                <Text variant="titleSmall">Realtime Events</Text>
+                <Text variant="bodyMedium" style={styles.preferenceHint}>
+                  Turn on live event updates. By default, the app uses manual refresh mode.
+                </Text>
+              </View>
+              <Switch
+                testID="realtime-toggle"
+                value={realtimeEventsEnabled}
+                disabled={savingPreference}
+                onValueChange={handleToggleRealtime}
+              />
+            </View>
+          </View>
+
+          <View
+            style={[
               styles.logoutSection,
               styles.sectionCard,
               {
@@ -498,6 +550,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
     fontSize: 14,
+  },
+  preferenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  preferenceCopy: {
+    flex: 1,
+  },
+  preferenceHint: {
+    marginTop: 4,
+    opacity: 0.68,
+    lineHeight: 19,
   },
   modalContent: {
     padding: 24,

@@ -67,6 +67,24 @@ describe('ProfileScreen', () => {
     expect(screen.getByDisplayValue('Test User')).toBeTruthy();
     expect(screen.getByDisplayValue('Old Bio')).toBeTruthy();
     expect(screen.getByDisplayValue('Old Link')).toBeTruthy();
+    expect(screen.getByText('switch-off')).toBeTruthy();
+  });
+
+  it('saves the realtime events preference from the profile toggle', async () => {
+    const screen = renderWithUser();
+
+    await waitForInitialProfileLoad(screen);
+
+    fireEvent.press(screen.getByTestId('realtime-toggle'));
+
+    await waitFor(() => {
+      expect(setDoc).toHaveBeenCalledWith(
+        'mock-user-doc',
+        { realtimeEventsEnabled: true },
+        { merge: true }
+      );
+      expect(screen.getByText('Settings updated successfully!')).toBeTruthy();
+    });
   });
 
   it('keeps extra bottom padding so the logout section stays reachable', async () => {

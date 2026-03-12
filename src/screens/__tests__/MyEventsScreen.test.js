@@ -10,12 +10,17 @@ import {
   subscribeToUserEvents,
   updateEvent,
 } from '../../services/eventService';
+import { fetchRealtimeEventsPreference } from '../../services/userPreferencesService';
 
 jest.mock('../../services/eventService', () => ({
   fetchUserEvents: jest.fn(),
   subscribeToUserEvents: jest.fn(),
   updateEvent: jest.fn(),
   deleteEvent: jest.fn(),
+}));
+
+jest.mock('../../services/userPreferencesService', () => ({
+  fetchRealtimeEventsPreference: jest.fn(),
 }));
 
 jest.mock('../../components/CreateEventModal', () => {
@@ -44,6 +49,7 @@ const mockUser = {
 const mockNavigation = {
   goBack: jest.fn(),
   navigate: jest.fn(),
+  addListener: jest.fn(),
 };
 
 const mockEvents = [
@@ -74,6 +80,8 @@ describe('MyEventsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     userEventsSubscriptionHandler = undefined;
+    fetchRealtimeEventsPreference.mockResolvedValue(true);
+    mockNavigation.addListener.mockImplementation(() => jest.fn());
     fetchUserEvents.mockResolvedValue(mockEvents);
     subscribeToUserEvents.mockImplementation((_userId, onEvents) => {
       userEventsSubscriptionHandler = onEvents;
@@ -98,7 +106,8 @@ describe('MyEventsScreen', () => {
   });
 
   it('shows an empty state when the user has no events', async () => {
-    fetchUserEvents.mockResolvedValueOnce([]);
+    fetchRealtimeEventsPreference.mockResolvedValueOnce(false);
+    fetchUserEvents.mockResolvedValue([]);
     const screen = renderScreen();
 
     await waitFor(() => {
@@ -136,6 +145,19 @@ describe('MyEventsScreen', () => {
       expect(screen.getByText('Realtime Event')).toBeTruthy();
       expect(screen.getByText('Realtime Square')).toBeTruthy();
     });
+  });
+
+  it('does not subscribe to realtime updates when the preference is disabled', async () => {
+    fetchRealtimeEventsPreference.mockResolvedValueOnce(false);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(fetchUserEvents).toHaveBeenCalledWith('test-user-id');
+      expect(fetchRealtimeEventsPreference).toHaveBeenCalledWith('test-user-id');
+    });
+
+    expect(subscribeToUserEvents).not.toHaveBeenCalled();
   });
 
   it('opens edit mode and updates an event', async () => {

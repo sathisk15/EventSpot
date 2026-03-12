@@ -12,8 +12,6 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
-console.log("FIREBASE CONFIGURATION DEBUG:", firebaseConfig);
-
 let app;
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);

@@ -68,7 +68,6 @@ const resolveEventImageUrls = async (images = [], user) => {
     }
 
     try {
-      console.log('Processing image:', imageUri);
       const downloadUrl = await uploadEventImage(imageUri, user);
       imageUrls.push(downloadUrl);
     } catch (uploadError) {
@@ -164,12 +163,9 @@ export const deleteEvent = async (eventId, eventOwnerId) => {
 
 export const fetchEvents = async () => {
   try {
-    console.log("Fetching events from Firestore...");
-    const eventsQuery = collection(db, 'events'); // Simplified query
+    const eventsQuery = collection(db, 'events');
     const querySnapshot = await getDocs(eventsQuery);
-    const events = mapSnapshotToEvents(querySnapshot);
-    console.log(`Fetched ${events.length} events:`, events);
-    return events;
+    return mapSnapshotToEvents(querySnapshot);
   } catch (error) {
     console.error("Error fetching events:", error);
     throw error;

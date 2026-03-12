@@ -12,6 +12,7 @@ import {
   deleteEvent,
   subscribeToEvents,
 } from '../../services/eventService';
+import { fetchRealtimeEventsPreference } from '../../services/userPreferencesService';
 import { Alert } from 'react-native';
 // Alert is mocked in jest.setup.js
 
@@ -23,6 +24,10 @@ jest.mock('../../services/eventService', () => ({
   updateEvent: jest.fn(),
   deleteEvent: jest.fn(),
   subscribeToEvents: jest.fn(),
+}));
+
+jest.mock('../../services/userPreferencesService', () => ({
+  fetchRealtimeEventsPreference: jest.fn(),
 }));
 
 // Mock Modals to isolate MapScreen tests
@@ -141,6 +146,7 @@ describe('MapScreen', () => {
     Location.getCurrentPositionAsync.mockResolvedValue({
       coords: { latitude: 51.1079, longitude: 17.0385 }
     });
+    fetchRealtimeEventsPreference.mockResolvedValue(true);
     fetchEvents.mockResolvedValue(mockEvents);
     saveEvent.mockResolvedValue({});
     setEventInterest.mockResolvedValue({});
@@ -233,6 +239,19 @@ describe('MapScreen', () => {
         ],
       });
     });
+  });
+
+  it('does not subscribe to realtime events when the preference is disabled', async () => {
+    fetchRealtimeEventsPreference.mockResolvedValueOnce(false);
+
+    render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => {
+      expect(fetchEvents).toHaveBeenCalled();
+      expect(fetchRealtimeEventsPreference).toHaveBeenCalledWith('test-user-id');
+    });
+
+    expect(subscribeToEvents).not.toHaveBeenCalled();
   });
 
   it('uses a background-image element for event marker photos', async () => {
@@ -424,6 +443,7 @@ describe('MapScreen', () => {
   });
 
   it('filters map pins by name or address text', async () => {
+    fetchRealtimeEventsPreference.mockResolvedValueOnce(false);
     fetchEvents.mockResolvedValue([
       {
         id: 'ev1',
@@ -470,6 +490,7 @@ describe('MapScreen', () => {
   });
 
   it('filters map pins by category', async () => {
+    fetchRealtimeEventsPreference.mockResolvedValueOnce(false);
     fetchEvents.mockResolvedValue([
       {
         id: 'ev1',
@@ -661,23 +682,34 @@ describe('MapScreen', () => {
     consoleSpy.mockRestore();
   });
 
-  it('handles Leaflet log and READY messages', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  it('pushes the current location and filtered events when the webview reports READY', async () => {
     const { getByTestId } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
     const webview = getByTestId('webview-mock');
-    
-    // Test LOG
-    fireEvent(webview, 'onMessage', JSON.stringify({ type: 'LOG', msg: 'Hello world' }));
-    expect(consoleSpy).toHaveBeenCalledWith("Leaflet Log:", "Hello world");
+    global.__WEBVIEW_POST_MESSAGE_MOCK__.mockClear();
 
-    // Test READY
     fireEvent(webview, 'onMessage', JSON.stringify({ type: 'READY' }));
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Leaflet is ready"), expect.any(Number));
 
-    consoleSpy.mockRestore();
+    expect(global.__WEBVIEW_POST_MESSAGE_MOCK__).toHaveBeenCalledWith(
+      JSON.stringify({
+        type: 'UPDATE_LOCATION',
+        lat: 51.1079,
+        lng: 17.0385,
+      }),
+    );
+    const setEventsCall = global.__WEBVIEW_POST_MESSAGE_MOCK__.mock.calls.find(
+      ([payload]) => JSON.parse(payload).type === 'SET_EVENTS',
+    );
+
+    expect(setEventsCall).toBeDefined();
+    expect(JSON.parse(setEventsCall[0])).toEqual(
+      expect.objectContaining({
+        type: 'SET_EVENTS',
+        events: expect.any(Array),
+      }),
+    );
   });
 
   it('shows error message if location services are disabled', async () => {
