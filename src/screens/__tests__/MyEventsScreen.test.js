@@ -88,7 +88,10 @@ describe('MyEventsScreen', () => {
 
     await waitFor(() => {
       expect(fetchUserEvents).toHaveBeenCalledWith('test-user-id');
+      expect(screen.getByText('Your event space')).toBeTruthy();
+      expect(screen.getByText('1 event')).toBeTruthy();
       expect(screen.getByText('My Concert')).toBeTruthy();
+      expect(screen.getByText('Posted by you')).toBeTruthy();
       expect(screen.getByText('Music')).toBeTruthy();
       expect(screen.getByText('Main Square')).toBeTruthy();
     });

@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Appbar, Button, Card, Chip, Text, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Button, Card, Chip, Text, useTheme } from 'react-native-paper';
 
 import { AuthContext } from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
@@ -112,22 +112,58 @@ const MyEventsScreen = ({ navigation }) => {
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {loading ? (
-          <Text>Loading your events...</Text>
-        ) : events.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text variant="titleMedium">No events yet</Text>
-            <Text variant="bodyMedium" style={styles.emptyText}>
-              Events you create will appear here for quick editing or deletion.
-            </Text>
+        <Card style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
+          <View style={styles.summaryHeader}>
+            <View>
+              <Text variant="titleMedium" style={styles.summaryTitle}>
+                Your event space
+              </Text>
+              <Text variant="bodyMedium" style={styles.summaryText}>
+                Review, edit, and manage everything you have posted from one place.
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.summaryBadge,
+                { backgroundColor: theme.colors.primaryContainer || '#DCEBFF' },
+              ]}
+            >
+              <Text
+                variant="labelLarge"
+                style={{ color: theme.colors.onPrimaryContainer || theme.colors.primary }}
+              >
+                {events.length} {events.length === 1 ? 'event' : 'events'}
+              </Text>
+            </View>
           </View>
+        </Card>
+
+        {loading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.loadingText}>Loading your events...</Text>
+          </View>
+        ) : events.length === 0 ? (
+          <Card style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.emptyState}>
+              <Text variant="titleMedium">No events yet</Text>
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                Events you create will appear here for quick editing or deletion.
+              </Text>
+            </View>
+          </Card>
         ) : (
           events.map(event => (
-            <Card key={event.id} style={styles.card}>
+            <Card key={event.id} style={[styles.card, { backgroundColor: theme.colors.surface }]}>
               <View style={styles.cardContent}>
-                <Text variant="titleLarge" style={styles.cardTitle}>
-                  {event.name}
-                </Text>
+                <View style={styles.cardHeader}>
+                  <Text variant="titleLarge" style={styles.cardTitle}>
+                    {event.name}
+                  </Text>
+                  <Text style={[styles.ownerPill, { color: theme.colors.primary }]}>
+                    Posted by you
+                  </Text>
+                </View>
                 <View style={styles.metaRow}>
                   {event.category ? <Chip icon="shape">{event.category}</Chip> : null}
                   <Chip icon="calendar">{formatEventDate(event)}</Chip>
@@ -137,16 +173,17 @@ const MyEventsScreen = ({ navigation }) => {
                   {event.location?.address || 'No address available'}
                 </Text>
                 <Text variant="bodySmall" style={styles.description} numberOfLines={3}>
-                  {event.description}
+                  {event.description || 'No description provided yet.'}
                 </Text>
                 <View style={styles.actionRow}>
-                  <Button mode="outlined" onPress={() => setEditingEvent(event)}>
+                  <Button mode="outlined" onPress={() => setEditingEvent(event)} style={styles.actionButton}>
                     Edit
                   </Button>
                   <Button
                     mode="contained"
                     buttonColor={theme.colors.error}
                     onPress={() => handleDeleteEvent(event)}
+                    style={styles.actionButton}
                   >
                     Delete
                   </Button>
@@ -174,44 +211,107 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingBottom: 32,
+  },
+  summaryCard: {
+    marginBottom: 14,
+    borderRadius: 24,
+    elevation: 2,
+  },
+  summaryHeader: {
+    padding: 18,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 12,
+  },
+  summaryTitle: {
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  summaryText: {
+    opacity: 0.72,
+    maxWidth: 220,
+    lineHeight: 20,
+  },
+  summaryBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  centerState: {
+    paddingVertical: 48,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    opacity: 0.7,
+  },
+  emptyCard: {
+    borderRadius: 24,
+    elevation: 1,
   },
   emptyState: {
     paddingVertical: 48,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
   emptyText: {
     marginTop: 8,
     opacity: 0.7,
     textAlign: 'center',
+    lineHeight: 20,
   },
   card: {
     marginBottom: 12,
+    borderRadius: 24,
+    elevation: 2,
   },
   cardTitle: {
     fontWeight: 'bold',
-    marginBottom: 10,
+    flex: 1,
   },
   cardContent: {
-    padding: 16,
+    padding: 18,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
+  ownerPill: {
+    fontSize: 12,
+    fontWeight: '700',
+    backgroundColor: 'rgba(59,130,246,0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   address: {
-    marginBottom: 8,
+    marginBottom: 10,
     opacity: 0.8,
+    lineHeight: 20,
   },
   description: {
     opacity: 0.7,
+    lineHeight: 19,
   },
   actionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 16,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
   },
 });
 
