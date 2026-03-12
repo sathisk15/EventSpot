@@ -28,6 +28,15 @@ const DEFAULT_EVENT_DURATION_MINUTES = 60;
 
 const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60000);
 
+const createDefaultSchedule = () => {
+  const start = new Date();
+  start.setSeconds(0, 0);
+  return {
+    start,
+    end: addMinutes(start, DEFAULT_EVENT_DURATION_MINUTES),
+  };
+};
+
 const updateDatePart = (baseDate, selectedDate) => {
   const nextDate = new Date(baseDate);
   nextDate.setFullYear(
@@ -64,10 +73,11 @@ const formatDuration = (minutes) => {
 
 const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
   const theme = useTheme();
+  const defaultSchedule = React.useMemo(() => createDefaultSchedule(), []);
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(addMinutes(new Date(), DEFAULT_EVENT_DURATION_MINUTES));
+  const [startDate, setStartDate] = useState(defaultSchedule.start);
+  const [endDate, setEndDate] = useState(defaultSchedule.end);
   const [activePicker, setActivePicker] = useState(null);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -202,9 +212,9 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
       setEventName('');
       setDescription('');
       setImages([]);
-      const nextStartDate = new Date();
-      setStartDate(nextStartDate);
-      setEndDate(addMinutes(nextStartDate, DEFAULT_EVENT_DURATION_MINUTES));
+      const nextSchedule = createDefaultSchedule();
+      setStartDate(nextSchedule.start);
+      setEndDate(nextSchedule.end);
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to save event.');

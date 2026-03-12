@@ -308,7 +308,7 @@ describe('MapScreen', () => {
     fireEvent.press(getByText('Add Event'));
     
     expect(getByText('Create Event Mock')).toBeTruthy();
-    expect(getByText('Resolved Address')).toBeTruthy();
+    expect(getByText('No Initial Location')).toBeTruthy();
   });
 
   it('logs refresh failures after saving a new event', async () => {
@@ -462,5 +462,32 @@ describe('MapScreen', () => {
     });
 
     consoleSpy.mockRestore();
+  });
+
+  it('clears the clicked location when opening the modal from the FAB after a map click', async () => {
+    const { getByTestId, getByText, queryByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent(getByTestId('webview-mock'), 'onMessage', JSON.stringify({
+      type: 'MAP_CLICK',
+      lat: 51.1079,
+      lng: 17.0385
+    }));
+
+    await waitFor(() => {
+      expect(getByText('Resolved Address')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('close-modal'));
+    await waitFor(() => {
+      expect(queryByText('Create Event Mock')).toBeNull();
+    });
+
+    fireEvent.press(getByTestId('fab-toggle'));
+    fireEvent.press(getByText('Add Event'));
+
+    expect(getByText('No Initial Location')).toBeTruthy();
+    expect(queryByText('Resolved Address')).toBeNull();
   });
 });

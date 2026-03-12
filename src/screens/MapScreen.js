@@ -37,7 +37,7 @@ const MapScreen = ({ navigation }) => {
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [modalInitialLocation, setModalInitialLocation] = useState(null);
 
   useEffect(() => {
     loadInitialData();
@@ -96,7 +96,6 @@ const MapScreen = ({ navigation }) => {
           longitude: currentLocation.coords.longitude,
         };
         setLocation(loc);
-        setSelectedLocation(await buildResolvedLocation(loc.latitude, loc.longitude));
       }
 
       // 2. Fetch Events
@@ -157,7 +156,6 @@ const MapScreen = ({ navigation }) => {
     };
     
     setLocation(newLoc);
-    setSelectedLocation(newLoc);
     setShowResults(false);
     setSearchQuery(item.display_name);
     Keyboard.dismiss();
@@ -186,7 +184,6 @@ const MapScreen = ({ navigation }) => {
       };
       
       setLocation(newLoc);
-      setSelectedLocation(await buildResolvedLocation(newLoc.latitude, newLoc.longitude));
       
       webViewRef.current.postMessage(JSON.stringify({
         type: 'UPDATE_LOCATION',
@@ -205,6 +202,7 @@ const MapScreen = ({ navigation }) => {
       await saveEvent(eventData);
       Alert.alert('Success', 'Event created successfully!');
       setModalVisible(false);
+      setModalInitialLocation(null);
       await refreshEvents();
     } catch (error) {
       console.error(error);
@@ -220,7 +218,12 @@ const MapScreen = ({ navigation }) => {
 
   const handleMapClick = async (latitude, longitude) => {
     const resolvedLocation = await buildResolvedLocation(latitude, longitude);
-    setSelectedLocation(resolvedLocation);
+    setModalInitialLocation(resolvedLocation);
+    setModalVisible(true);
+  };
+
+  const openCreateEventModal = () => {
+    setModalInitialLocation(null);
     setModalVisible(true);
   };
 
@@ -501,7 +504,7 @@ const MapScreen = ({ navigation }) => {
                 visible={true}
                 icon={fabOpen ? 'close' : 'plus'}
                 actions={[
-                  { icon: 'calendar-plus', label: 'Add Event', onPress: () => setModalVisible(true) },
+                  { icon: 'calendar-plus', label: 'Add Event', onPress: openCreateEventModal },
                   { icon: 'crosshairs-gps', label: 'Recenter', onPress: recenterMap },
                 ]}
                 onStateChange={({ open }) => setFabOpen(open)}
@@ -513,9 +516,12 @@ const MapScreen = ({ navigation }) => {
 
             <CreateEventModal
               visible={modalVisible}
-              onDismiss={() => setModalVisible(false)}
+              onDismiss={() => {
+                setModalVisible(false);
+                setModalInitialLocation(null);
+              }}
               onSave={onSaveEvent}
-              initialLocation={selectedLocation}
+              initialLocation={modalInitialLocation}
             />
 
             <EventDetailModal
