@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { useIsFocused } from '@react-navigation/native';
 import MapScreen from '../MapScreen';
 import { AuthContext } from '../../contexts/AuthContext';
 import * as Location from 'expo-location';
@@ -68,6 +69,7 @@ const mockNavigation = {
   navigate: jest.fn(),
   goBack: jest.fn(),
   addListener: jest.fn(),
+  setParams: jest.fn(),
 };
 
 const providers = ({ children }) => (
@@ -120,6 +122,7 @@ describe('MapScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    useIsFocused.mockReturnValue(true);
     if (global.__WEBVIEW_POST_MESSAGE_MOCK__) {
       global.__WEBVIEW_POST_MESSAGE_MOCK__.mockClear();
     }
@@ -299,7 +302,7 @@ describe('MapScreen', () => {
   });
 
   it('opens EventDetailModal when an event is clicked', async () => {
-    const { getByTestId, getByText, queryByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+    const { getByTestId, getByText, queryByText, queryByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
@@ -315,6 +318,33 @@ describe('MapScreen', () => {
       expect(getByText('Event Details Mock')).toBeTruthy();
       expect(getByText('Cool Concert')).toBeTruthy();
       expect(getByText('1 interested')).toBeTruthy();
+      expect(queryByTestId('zoom-in-button')).toBeNull();
+      expect(queryByText('My Events')).toBeNull();
+      expect(queryByText('Add Event')).toBeNull();
+      expect(queryByText('Recenter')).toBeNull();
+    });
+  });
+
+  it('opens an event from navigation params when arriving from My Events', async () => {
+    const route = {
+      params: {
+        focusEventId: 'ev1',
+        focusEvent: mockEvents[0],
+      },
+    };
+
+    const { getByText } = render(<MapScreen navigation={mockNavigation} route={route} />, {
+      wrapper: providers,
+    });
+
+    expect(getByText('Event Details Mock')).toBeTruthy();
+    expect(getByText('Cool Concert')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(mockNavigation.setParams).toHaveBeenCalledWith({
+        focusEvent: undefined,
+        focusEventId: 'ev1',
+      });
     });
   });
 
@@ -332,6 +362,21 @@ describe('MapScreen', () => {
     expect(global.__WEBVIEW_POST_MESSAGE_MOCK__).toHaveBeenCalledWith(
       JSON.stringify({ type: 'ZOOM_OUT' })
     );
+  });
+
+  it('hides map chrome when the map screen is not focused', async () => {
+    useIsFocused.mockReturnValue(false);
+
+    const { queryByTestId, queryByText } = render(<MapScreen navigation={mockNavigation} />, {
+      wrapper: providers,
+    });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    expect(queryByTestId('zoom-in-button')).toBeNull();
+    expect(queryByText('My Events')).toBeNull();
+    expect(queryByText('Add Event')).toBeNull();
+    expect(queryByText('Recenter')).toBeNull();
   });
 
   it('performs location search and updates map', async () => {
@@ -659,7 +704,7 @@ describe('MapScreen', () => {
   });
 
   it('handles action dock "Add Event" action', async () => {
-    const { getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+    const { getByText, queryByText, queryByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
     
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
     
@@ -667,6 +712,9 @@ describe('MapScreen', () => {
     
     expect(getByText('Create Event Mock')).toBeTruthy();
     expect(getByText('No Initial Location')).toBeTruthy();
+    expect(queryByTestId('zoom-in-button')).toBeNull();
+    expect(queryByText('My Events')).toBeNull();
+    expect(queryByText('Recenter')).toBeNull();
   });
 
   it('navigates to My Events from the action dock', async () => {

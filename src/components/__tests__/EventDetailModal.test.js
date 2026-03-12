@@ -34,7 +34,7 @@ describe('EventDetailModal', () => {
   });
 
   it('renders correctly with event data and schedule', () => {
-    const { getByText } = render(
+    const { getByText, getByTestId } = render(
       <EventDetailModal
         visible={true}
         onDismiss={mockOnDismiss}
@@ -64,6 +64,13 @@ describe('EventDetailModal', () => {
     ).toBeTruthy();
     expect(getByText('2h 30m')).toBeTruthy();
     expect(getByText('2 interested')).toBeTruthy();
+    expect(getByTestId('event-detail-footer').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          paddingBottom: 40,
+        }),
+      ]),
+    );
   });
 
   it('calls onDismiss when close action is pressed', () => {

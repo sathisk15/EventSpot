@@ -20,6 +20,7 @@ import {
   Portal,
   Chip,
 } from 'react-native-paper';
+import { useIsFocused } from '@react-navigation/native';
 import {WebView} from 'react-native-webview';
 import * as Location from 'expo-location';
 import {AuthContext} from '../contexts/AuthContext';
@@ -72,10 +73,11 @@ const filterEvents = (eventList, query, category) => {
   });
 };
 
-const MapScreen = ({navigation}) => {
+const MapScreen = ({navigation, route}) => {
   const {user} = useContext(AuthContext);
   const theme = useTheme();
   const webViewRef = useRef(null);
+  const isFocused = useIsFocused();
 
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -103,6 +105,7 @@ const MapScreen = ({navigation}) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalInitialLocation, setModalInitialLocation] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+  const showMapChrome = isFocused && !modalVisible && !detailVisible;
 
   const hasActiveSearchOrFilters = Boolean(
     searchQuery.trim() ||
@@ -159,6 +162,38 @@ const MapScreen = ({navigation}) => {
       setSelectedEvent(updatedSelectedEvent);
     }
   }, [events, selectedEvent?.id]);
+
+  useEffect(() => {
+    const focusEvent = route?.params?.focusEvent;
+    if (!focusEvent) {
+      return;
+    }
+
+    clearSearchAndFilters();
+    setSelectedEvent(focusEvent);
+    setDetailVisible(true);
+    navigation?.setParams?.({
+      focusEvent: undefined,
+      focusEventId: route?.params?.focusEventId,
+    });
+  }, [navigation, route?.params?.focusEvent, route?.params?.focusEventId]);
+
+  useEffect(() => {
+    const focusEventId = route?.params?.focusEventId;
+    if (!focusEventId || events.length === 0) {
+      return;
+    }
+
+    const targetEvent = events.find(event => event.id === focusEventId);
+    if (!targetEvent) {
+      return;
+    }
+
+    clearSearchAndFilters();
+    setSelectedEvent(targetEvent);
+    setDetailVisible(true);
+    navigation?.setParams?.({focusEventId: undefined, focusEvent: undefined});
+  }, [events, navigation, route?.params?.focusEventId]);
 
   const postMapMessage = payload => {
     webViewRef.current?.postMessage(JSON.stringify(payload));
@@ -897,84 +932,87 @@ const MapScreen = ({navigation}) => {
               }}
             />
 
-            <Portal>
-              <View style={styles.mapControls}>
-                <TouchableOpacity
-                  testID="zoom-in-button"
-                  style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
-                  onPress={() => zoomMap('ZOOM_IN')}>
-                  <Text style={styles.mapControlText}>+</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  testID="zoom-out-button"
-                  style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
-                  onPress={() => zoomMap('ZOOM_OUT')}>
-                  <Text style={styles.mapControlText}>-</Text>
-                </TouchableOpacity>
-              </View>
+            {showMapChrome ? (
+              <Portal>
+                <View style={styles.mapControls}>
+                  <TouchableOpacity
+                    testID="zoom-in-button"
+                    style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
+                    onPress={() => zoomMap('ZOOM_IN')}>
+                    <Text style={styles.mapControlText}>+</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="zoom-out-button"
+                    style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
+                    onPress={() => zoomMap('ZOOM_OUT')}>
+                    <Text style={styles.mapControlText}>-</Text>
+                  </TouchableOpacity>
+                </View>
 
-              <View style={styles.actionDock}>
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    {backgroundColor: theme.colors.surface},
-                  ]}
-                  onPress={() => navigation.navigate('MyEvents')}>
-                  <Text style={styles.actionLabel}>My Events</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    styles.primaryActionButton,
-                    {backgroundColor: theme.colors.primary},
-                  ]}
-                  onPress={openCreateEventModal}>
-                  <Text
+                <View style={styles.actionDock}>
+                  <TouchableOpacity
                     style={[
-                      styles.actionLabel,
-                      {color: theme.colors.onPrimary || '#FFFFFF'},
-                    ]}>
-                    Add Event
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    {backgroundColor: theme.colors.surface},
-                  ]}
-                  onPress={recenterMap}>
-                  <Text style={styles.actionLabel}>
-                    {isRecentering ? 'Recentering...' : 'Recenter'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Portal>
+                      styles.actionButton,
+                      {backgroundColor: theme.colors.surface},
+                    ]}
+                    onPress={() => navigation.navigate('MyEvents')}>
+                    <Text style={styles.actionLabel}>My Events</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      styles.primaryActionButton,
+                      {backgroundColor: theme.colors.primary},
+                    ]}
+                    onPress={openCreateEventModal}>
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        {color: theme.colors.onPrimary || '#FFFFFF'},
+                      ]}>
+                      Add Event
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      {backgroundColor: theme.colors.surface},
+                    ]}
+                    onPress={recenterMap}>
+                    <Text style={styles.actionLabel}>
+                      {isRecentering ? 'Recentering...' : 'Recenter'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </Portal>
+            ) : null}
 
-            <CreateEventModal
-              visible={modalVisible}
-              onDismiss={() => {
-                setModalVisible(false);
-                setModalInitialLocation(null);
-                setEditingEvent(null);
-              }}
-              onSave={onSaveEvent}
-              initialLocation={modalInitialLocation}
-              initialEvent={editingEvent}
-            />
-
-            <EventDetailModal
-              visible={detailVisible}
-              onDismiss={() => setDetailVisible(false)}
-              event={selectedEvent}
-              currentUserId={user?.uid}
-              onEdit={handleEditEvent}
-              onDelete={handleDeleteEvent}
-              onToggleInterest={handleToggleInterest}
-              interestLoading={interestLoading}
-            />
           </>
         ) : null}
       </View>
+
+      <CreateEventModal
+        visible={modalVisible}
+        onDismiss={() => {
+          setModalVisible(false);
+          setModalInitialLocation(null);
+          setEditingEvent(null);
+        }}
+        onSave={onSaveEvent}
+        initialLocation={modalInitialLocation}
+        initialEvent={editingEvent}
+      />
+
+      <EventDetailModal
+        visible={detailVisible}
+        onDismiss={() => setDetailVisible(false)}
+        event={selectedEvent}
+        currentUserId={user?.uid}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+        onToggleInterest={handleToggleInterest}
+        interestLoading={interestLoading}
+      />
     </View>
   );
 };

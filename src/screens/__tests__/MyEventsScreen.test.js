@@ -182,6 +182,21 @@ describe('MyEventsScreen', () => {
     });
   });
 
+  it('navigates to the map focused on the selected event', async () => {
+    const screen = renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('My Concert')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('View Event'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('Map', {
+      focusEventId: 'ev1',
+      focusEvent: mockEvents[0],
+    });
+  });
+
   it('navigates back from the header', async () => {
     const screen = renderScreen();
 

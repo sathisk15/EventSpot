@@ -17,6 +17,7 @@ import {
   Chip,
   Divider
 } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -66,6 +67,7 @@ const EventDetailModal = ({
   interestLoading,
 }) => {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (!event) return null;
 
@@ -152,7 +154,15 @@ const EventDetailModal = ({
           <View style={{ height: 40 }} />
         </ScrollView>
         
-        <View style={styles.footer}>
+        <View
+          testID="event-detail-footer"
+          style={[
+            styles.footer,
+            {
+              backgroundColor: theme.colors.surface,
+              paddingBottom: 16 + insets.bottom,
+            },
+          ]}>
           {isOwner ? (
             <View style={styles.ownerActions}>
               <Button mode="outlined" style={styles.ownerButton} onPress={() => onEdit?.(event)}>
@@ -239,7 +249,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 16,
-    backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },

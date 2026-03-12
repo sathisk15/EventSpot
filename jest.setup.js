@@ -70,6 +70,16 @@ jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
 }));
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: jest.fn(() => ({
+    top: 0,
+    right: 0,
+    bottom: 24,
+    left: 0,
+  })),
+  SafeAreaProvider: ({ children }) => <>{children}</>,
+}));
+
 // Mock Firebase
 jest.mock('./src/config/firebase', () => {
   const mockAuth = {
@@ -234,6 +244,7 @@ jest.mock('expo-constants', () => ({
 // Mock React Navigation
 jest.mock('@react-navigation/native', () => ({
   NavigationContainer: ({ children }) => <>{children}</>,
+  useIsFocused: jest.fn(() => true),
 }));
 
 jest.mock('@react-navigation/native-stack', () => ({

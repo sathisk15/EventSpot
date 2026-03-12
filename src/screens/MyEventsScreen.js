@@ -103,6 +103,13 @@ const MyEventsScreen = ({ navigation }) => {
     }
   };
 
+  const handleViewEvent = event => {
+    navigation.navigate('Map', {
+      focusEventId: event.id,
+      focusEvent: event,
+    });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header elevated>
@@ -176,6 +183,9 @@ const MyEventsScreen = ({ navigation }) => {
                   {event.description || 'No description provided yet.'}
                 </Text>
                 <View style={styles.actionRow}>
+                  <Button mode="contained-tonal" onPress={() => handleViewEvent(event)} style={styles.actionButton}>
+                    View Event
+                  </Button>
                   <Button mode="outlined" onPress={() => setEditingEvent(event)} style={styles.actionButton}>
                     Edit
                   </Button>
@@ -309,9 +319,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 16,
     gap: 10,
+    flexWrap: 'wrap',
   },
   actionButton: {
     flex: 1,
+    minWidth: 100,
   },
 });
 
