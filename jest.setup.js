@@ -206,7 +206,11 @@ jest.mock('react-native-paper', () => {
         ),
       }
     ),
-    Chip: ({ children }) => <View><Text>{children}</Text></View>,
+    Chip: ({ children, onPress, testID }) => (
+      <TouchableOpacity onPress={onPress} testID={testID}>
+        <View><Text>{children}</Text></View>
+      </TouchableOpacity>
+    ),
     Text: ({ children, style }) => <Text style={style}>{children}</Text>,
     Avatar: {
       Text: ({ label }) => <View><Text>{label}</Text></View>,

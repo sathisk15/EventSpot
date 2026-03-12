@@ -2,10 +2,10 @@ import React, {useContext, useEffect, useState, useRef} from 'react';
 import {
   View,
   StyleSheet,
-  Dimensions,
   Alert,
   TouchableOpacity,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import {
   Text,
@@ -18,6 +18,7 @@ import {
   List,
   Card,
   Portal,
+  Chip,
 } from 'react-native-paper';
 import {WebView} from 'react-native-webview';
 import * as Location from 'expo-location';
@@ -25,9 +26,44 @@ import {AuthContext} from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
 import {saveEvent, fetchEvents, updateEvent, deleteEvent} from '../services/eventService';
+import {EVENT_CATEGORIES} from '../constants/eventCategories';
 
 const formatCoordinateFallback = (latitude, longitude) =>
   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+
+const ALL_EVENT_CATEGORIES = 'All';
+
+const normalizeFilterValue = value => value?.trim().toLowerCase() || '';
+
+const filterEvents = (eventList, query, category) => {
+  const normalizedQuery = normalizeFilterValue(query);
+
+  return eventList.filter(event => {
+    const matchesCategory =
+      !category ||
+      category === ALL_EVENT_CATEGORIES ||
+      event.category === category;
+
+    if (!matchesCategory) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    const haystack = [
+      event.name,
+      event.location?.address,
+      event.category,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedQuery);
+  });
+};
 
 const MapScreen = ({navigation}) => {
   const {user} = useContext(AuthContext);
@@ -49,6 +85,10 @@ const MapScreen = ({navigation}) => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [eventFilterQuery, setEventFilterQuery] = useState('');
+  const [eventFilterCategory, setEventFilterCategory] = useState(
+    ALL_EVENT_CATEGORIES,
+  );
 
   // FAB Group state
   const [fabOpen, setFabOpen] = useState(false);
@@ -69,6 +109,19 @@ const MapScreen = ({navigation}) => {
 
     return unsubscribe;
   }, [navigation]);
+
+  useEffect(() => {
+    if (!webViewRef.current) {
+      return;
+    }
+
+    webViewRef.current.postMessage(
+      JSON.stringify({
+        type: 'SET_EVENTS',
+        events: filterEvents(events, eventFilterQuery, eventFilterCategory),
+      }),
+    );
+  }, [events, eventFilterCategory, eventFilterQuery]);
 
   const resolveAddress = async (latitude, longitude) => {
     try {
@@ -140,16 +193,6 @@ const MapScreen = ({navigation}) => {
     try {
       const fetchedEvents = await fetchEvents();
       setEvents(fetchedEvents);
-
-      // Update the Leaflet map with new events
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(
-          JSON.stringify({
-            type: 'SET_EVENTS',
-            events: fetchedEvents,
-          }),
-        );
-      }
     } catch (error) {
       console.error('Refresh events error:', error);
     }
@@ -294,6 +337,12 @@ const MapScreen = ({navigation}) => {
       Alert.alert('Error', 'Failed to delete event.');
     }
   };
+
+  const filteredEvents = filterEvents(
+    events,
+    eventFilterQuery,
+    eventFilterCategory,
+  );
 
   // Leaflet HTML with OpenStreetMap Tiles
   const mapHtml = `
@@ -484,7 +533,7 @@ const MapScreen = ({navigation}) => {
           window.ReactNativeWebView.postMessage(JSON.stringify({type: 'READY'}));
 
           // Initial Render
-          renderEvents(${JSON.stringify(events)});
+          renderEvents(${JSON.stringify(filteredEvents)});
 
           // Map Click Handler
           var tempMarker;
@@ -571,6 +620,51 @@ const MapScreen = ({navigation}) => {
             </List.Section>
           </Card>
         )}
+        <Card style={styles.filterCard}>
+          <Searchbar
+            placeholder="Filter events by name, address, or category..."
+            onChangeText={setEventFilterQuery}
+            value={eventFilterQuery}
+            onClearIconPress={() => setEventFilterQuery('')}
+            style={styles.filterSearchBar}
+          />
+          <Text style={styles.filterSummary}>
+            {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} shown
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterChips}>
+            {[ALL_EVENT_CATEGORIES, ...EVENT_CATEGORIES].map(category => {
+              const selected = eventFilterCategory === category;
+
+              return (
+                <Chip
+                  key={category}
+                  selected={selected}
+                  onPress={() => setEventFilterCategory(category)}
+                  style={[
+                    styles.filterChip,
+                    selected && {
+                      backgroundColor:
+                        theme.colors.primaryContainer || '#DCEBFF',
+                    },
+                  ]}
+                  textStyle={
+                    selected
+                      ? {
+                          color:
+                            theme.colors.onPrimaryContainer ||
+                            theme.colors.primary,
+                        }
+                      : undefined
+                  }>
+                  {category}
+                </Chip>
+              );
+            })}
+          </ScrollView>
+        </Card>
       </View>
 
       <View style={styles.content}>
@@ -621,7 +715,7 @@ const MapScreen = ({navigation}) => {
                   webViewRef.current?.postMessage(
                     JSON.stringify({
                       type: 'SET_EVENTS',
-                      events: events,
+                      events: filteredEvents,
                     }),
                   );
                 } else if (data.type === 'EVENT_CLICK') {
@@ -703,6 +797,29 @@ const styles = StyleSheet.create({
   },
   searchBar: {elevation: 4},
   resultsCard: {marginTop: 4, maxHeight: 250},
+  filterCard: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
+    elevation: 4,
+    borderRadius: 20,
+  },
+  filterSearchBar: {
+    elevation: 0,
+  },
+  filterSummary: {
+    marginTop: 8,
+    marginBottom: 10,
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  filterChips: {
+    paddingRight: 8,
+  },
+  filterChip: {
+    marginRight: 8,
+  },
   content: {flex: 1, position: 'relative'},
   centerBox: {flex: 1, justifyContent: 'center', alignItems: 'center'},
   map: {flex: 1},

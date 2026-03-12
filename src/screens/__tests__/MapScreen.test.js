@@ -92,6 +92,7 @@ describe('MapScreen', () => {
     name: 'Cool Concert',
     location: { latitude: 51, longitude: 17, address: 'Concert Hall' },
     date: new Date().toISOString(),
+    category: 'Music',
     createdBy: 'test-user-id',
     creatorEmail: 'test@example.com',
   }];
@@ -273,6 +274,94 @@ describe('MapScreen', () => {
     // Should clear results
     await waitFor(() => {
       expect(searchInput.props.value).toBe('Warsaw, Poland');
+    });
+  });
+
+  it('renders event filter controls and summary', async () => {
+    const { getByPlaceholderText, getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    expect(
+      getByPlaceholderText('Filter events by name, address, or category...')
+    ).toBeTruthy();
+    expect(getByText('1 event shown')).toBeTruthy();
+    expect(getByText('All')).toBeTruthy();
+    expect(getByText('Music')).toBeTruthy();
+  });
+
+  it('filters map pins by name or address text', async () => {
+    fetchEvents.mockResolvedValue([
+      {
+        id: 'ev1',
+        name: 'Cool Concert',
+        category: 'Music',
+        location: { latitude: 51, longitude: 17, address: 'Concert Hall' },
+      },
+      {
+        id: 'ev2',
+        name: 'Food Market',
+        category: 'Food',
+        location: { latitude: 52, longitude: 18, address: 'Market Square' },
+      },
+    ]);
+
+    const { getByPlaceholderText, getByTestId, getByText } = render(
+      <MapScreen navigation={{}} />,
+      { wrapper: providers }
+    );
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    expect(getByTestId('webview-mock').props.source.html).toContain('Cool Concert');
+    expect(getByTestId('webview-mock').props.source.html).toContain('Food Market');
+
+    fireEvent.changeText(
+      getByPlaceholderText('Filter events by name, address, or category...'),
+      'Market'
+    );
+
+    await waitFor(() => {
+      expect(getByText('1 event shown')).toBeTruthy();
+      expect(getByTestId('webview-mock').props.source.html).toContain('Food Market');
+      expect(getByTestId('webview-mock').props.source.html).not.toContain('Cool Concert');
+    });
+  });
+
+  it('filters map pins by category', async () => {
+    fetchEvents.mockResolvedValue([
+      {
+        id: 'ev1',
+        name: 'Cool Concert',
+        category: 'Music',
+        location: { latitude: 51, longitude: 17, address: 'Concert Hall' },
+      },
+      {
+        id: 'ev2',
+        name: 'Startup Mixer',
+        category: 'Networking',
+        location: { latitude: 52, longitude: 18, address: 'Innovation Hub' },
+      },
+    ]);
+
+    const { getByText, getByTestId } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent.press(getByText('Networking'));
+
+    await waitFor(() => {
+      expect(getByText('1 event shown')).toBeTruthy();
+      expect(getByTestId('webview-mock').props.source.html).toContain('Startup Mixer');
+      expect(getByTestId('webview-mock').props.source.html).not.toContain('Cool Concert');
+    });
+
+    fireEvent.press(getByText('All'));
+
+    await waitFor(() => {
+      expect(getByText('2 events shown')).toBeTruthy();
+      expect(getByTestId('webview-mock').props.source.html).toContain('Startup Mixer');
+      expect(getByTestId('webview-mock').props.source.html).toContain('Cool Concert');
     });
   });
 
