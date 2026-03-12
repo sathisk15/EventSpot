@@ -23,10 +23,15 @@ jest.mock('react-native-webview', () => {
 jest.mock('@react-native-community/datetimepicker', () => {
   const React = require('react');
   const { TouchableOpacity, Text } = require('react-native');
-  return ({ value, onChange, testID }) => (
+  return ({ value, onChange, testID, mode }) => (
     <TouchableOpacity 
       testID={testID || 'datetimepicker'} 
-      onPress={() => onChange({}, new Date(value.getTime() + 86400000))} // Simulate +1 day
+      onPress={() =>
+        onChange(
+          {},
+          new Date(value.getTime() + (mode === 'time' ? 3600000 : 86400000))
+        )
+      }
     >
       <Text>DateTimePicker</Text>
     </TouchableOpacity>

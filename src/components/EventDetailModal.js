@@ -20,10 +20,47 @@ import {
 
 const { width } = Dimensions.get('window');
 
+const getEventStartDate = (event) => new Date(event.startDate || event.date);
+
+const getEventEndDate = (event) => {
+  if (event.endDate) {
+    return new Date(event.endDate);
+  }
+
+  if (typeof event.durationMinutes === 'number') {
+    return new Date(getEventStartDate(event).getTime() + event.durationMinutes * 60000);
+  }
+
+  return null;
+};
+
+const getDurationLabel = (event) => {
+  if (typeof event.durationMinutes !== 'number') {
+    return null;
+  }
+
+  const hours = Math.floor(event.durationMinutes / 60);
+  const minutes = event.durationMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${minutes}m`;
+};
+
 const EventDetailModal = ({ visible, onDismiss, event }) => {
   const theme = useTheme();
 
   if (!event) return null;
+
+  const eventStartDate = getEventStartDate(event);
+  const eventEndDate = getEventEndDate(event);
+  const durationLabel = getDurationLabel(event);
 
   return (
     <Portal>
@@ -55,8 +92,20 @@ const EventDetailModal = ({ visible, onDismiss, event }) => {
             </View>
 
             <View style={styles.chipRow}>
-              <Chip icon="calendar" style={styles.chip}>{new Date(event.date).toLocaleDateString()}</Chip>
-              <Chip icon="clock-outline" style={styles.chip}>{new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Chip>
+              <Chip icon="calendar" style={styles.chip}>{eventStartDate.toLocaleDateString()}</Chip>
+              <Chip icon="clock-start" style={styles.chip}>
+                From {eventStartDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Chip>
+              {eventEndDate ? (
+                <Chip icon="clock-end" style={styles.chip}>
+                  To {eventEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Chip>
+              ) : null}
+              {durationLabel ? (
+                <Chip icon="timer-sand" style={styles.chip}>
+                  {durationLabel}
+                </Chip>
+              ) : null}
             </View>
 
             <Divider style={styles.divider} />

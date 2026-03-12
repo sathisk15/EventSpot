@@ -66,6 +66,9 @@ describe('eventService', () => {
       name: 'Test Event',
       description: 'Description',
       date: '2026-03-12T12:00:00.000Z',
+      startDate: '2026-03-12T12:00:00.000Z',
+      endDate: '2026-03-12T14:00:00.000Z',
+      durationMinutes: 120,
       images: ['file://image1.jpg'],
       location: { latitude: 0, longitude: 0, address: 'Test Location' },
     };
@@ -96,6 +99,9 @@ describe('eventService', () => {
         undefined,
         expect.objectContaining({
           name: 'Test Event',
+          startDate: '2026-03-12T12:00:00.000Z',
+          endDate: '2026-03-12T14:00:00.000Z',
+          durationMinutes: 120,
           images: [expect.stringContaining('token=download-token')],
         })
       );
@@ -109,6 +115,23 @@ describe('eventService', () => {
 
       expect(FileSystem.uploadAsync).not.toHaveBeenCalled();
       expect(result.images).toEqual([]);
+    });
+
+    it('falls back to the legacy date field when start and end are not provided', async () => {
+      addDoc.mockResolvedValueOnce({ id: 'legacy-event' });
+
+      const result = await saveEvent({
+        ...eventData,
+        startDate: undefined,
+        endDate: undefined,
+        durationMinutes: undefined,
+        images: [],
+      });
+
+      expect(result.date).toBe('2026-03-12T12:00:00.000Z');
+      expect(result.startDate).toBe('2026-03-12T12:00:00.000Z');
+      expect(result.endDate).toBeNull();
+      expect(result.durationMinutes).toBeNull();
     });
 
     it('rejects when no user is authenticated', async () => {

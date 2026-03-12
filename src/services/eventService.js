@@ -51,10 +51,19 @@ export const saveEvent = async (eventData) => {
     }
 
     // 2. Save event metadata to Firestore
+    const startDate = eventData.startDate || eventData.date;
+    const endDate = eventData.endDate || null;
+    const durationMinutes = typeof eventData.durationMinutes === 'number'
+      ? eventData.durationMinutes
+      : null;
+
     const eventDoc = {
       name: eventData.name,
       description: eventData.description,
-      date: eventData.date,
+      date: startDate,
+      startDate,
+      endDate,
+      durationMinutes,
       location: eventData.location, // { latitude, longitude, address }
       images: imageUrls,
       createdBy: user.uid,

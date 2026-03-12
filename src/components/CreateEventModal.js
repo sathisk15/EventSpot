@@ -4,10 +4,8 @@ import {
   StyleSheet, 
   ScrollView, 
   Image, 
-  TouchableOpacity, 
-  Alert,
-  Modal,
-  Platform
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { 
   TextInput, 
@@ -16,7 +14,7 @@ import {
   Appbar, 
   useTheme, 
   Portal, 
-  ActivityIndicator,
+  Modal,
   IconButton,
   Searchbar,
   List,
@@ -26,13 +24,51 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+const DEFAULT_EVENT_DURATION_MINUTES = 60;
+
+const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60000);
+
+const updateDatePart = (baseDate, selectedDate) => {
+  const nextDate = new Date(baseDate);
+  nextDate.setFullYear(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate()
+  );
+  return nextDate;
+};
+
+const updateTimePart = (baseDate, selectedTime) => {
+  const nextDate = new Date(baseDate);
+  nextDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+  return nextDate;
+};
+
+const getDurationMinutes = (startDate, endDate) =>
+  Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+
+const formatDuration = (minutes) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours === 0) {
+    return `${remainingMinutes} min`;
+  }
+
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
+};
+
 const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
   const theme = useTheme();
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(addMinutes(new Date(), DEFAULT_EVENT_DURATION_MINUTES));
+  const [activePicker, setActivePicker] = useState(null);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -52,6 +88,8 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
       setSearchQuery(initialLocation?.address || '');
     }
   }, [visible, initialLocation]);
+
+  const durationMinutes = getDurationMinutes(startDate, endDate);
 
   const handleLocationSearch = async (query) => {
     if (!query) return;
@@ -101,21 +139,39 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
     setImages(newImages);
   };
 
-  const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      const currentDate = new Date(date);
-      currentDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-      setDate(currentDate);
-    }
-  };
+  const handlePickerChange = (event, selectedValue) => {
+    const pickerType = activePicker;
+    setActivePicker(null);
 
-  const onTimeChange = (event, selectedTime) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      const currentTime = new Date(date);
-      currentTime.setHours(selectedTime.getHours(), selectedTime.getMinutes());
-      setDate(currentTime);
+    if (!selectedValue || !pickerType) {
+      return;
+    }
+
+    if (pickerType === 'startDate') {
+      const nextStartDate = updateDatePart(startDate, selectedValue);
+      setStartDate(nextStartDate);
+      if (endDate <= nextStartDate) {
+        setEndDate(addMinutes(nextStartDate, DEFAULT_EVENT_DURATION_MINUTES));
+      }
+      return;
+    }
+
+    if (pickerType === 'startTime') {
+      const nextStartDate = updateTimePart(startDate, selectedValue);
+      setStartDate(nextStartDate);
+      if (endDate <= nextStartDate) {
+        setEndDate(addMinutes(nextStartDate, DEFAULT_EVENT_DURATION_MINUTES));
+      }
+      return;
+    }
+
+    if (pickerType === 'endDate') {
+      setEndDate(updateDatePart(endDate, selectedValue));
+      return;
+    }
+
+    if (pickerType === 'endTime') {
+      setEndDate(updateTimePart(endDate, selectedValue));
     }
   };
 
@@ -125,12 +181,20 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
       return;
     }
 
+    if (durationMinutes <= 0) {
+      Alert.alert('Invalid Time Range', 'End time must be after the start time.');
+      return;
+    }
+
     setLoading(true);
     try {
       await onSave({
         name: eventName,
         description,
-        date: date.toISOString(),
+        date: startDate.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        durationMinutes,
         images: images.map(img => img.uri),
         location: localLocation, // Use localLocation which might have been changed via search
       });
@@ -138,7 +202,9 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
       setEventName('');
       setDescription('');
       setImages([]);
-      setDate(new Date());
+      const nextStartDate = new Date();
+      setStartDate(nextStartDate);
+      setEndDate(addMinutes(nextStartDate, DEFAULT_EVENT_DURATION_MINUTES));
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to save event.');
@@ -221,37 +287,52 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
             style={styles.input}
           />
 
-          <View style={styles.dateTimeContainer}>
-            <View style={styles.dateTimeItem}>
-              <Text variant="labelLarge">Date</Text>
-              <Button mode="outlined" onPress={() => setShowDatePicker(true)} icon="calendar" style={styles.dateTimeButton}>
-                {date.toLocaleDateString()}
-              </Button>
+          <View style={styles.dateTimeSection}>
+            <Text variant="labelLarge" style={styles.sectionTitle}>Schedule</Text>
+
+            <View style={styles.dateTimeContainer}>
+              <View style={styles.dateTimeItem}>
+                <Text variant="labelMedium">Starts On</Text>
+                <Button mode="outlined" onPress={() => setActivePicker('startDate')} icon="calendar" style={styles.dateTimeButton}>
+                  {startDate.toLocaleDateString()}
+                </Button>
+              </View>
+              <View style={styles.dateTimeItem}>
+                <Text variant="labelMedium">Start Time</Text>
+                <Button mode="outlined" onPress={() => setActivePicker('startTime')} icon="clock-start" style={styles.dateTimeButton}>
+                  {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Button>
+              </View>
             </View>
-            <View style={styles.dateTimeItem}>
-              <Text variant="labelLarge">Time</Text>
-              <Button mode="outlined" onPress={() => setShowTimePicker(true)} icon="clock" style={styles.dateTimeButton}>
-                {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Button>
+
+            <View style={styles.dateTimeContainer}>
+              <View style={styles.dateTimeItem}>
+                <Text variant="labelMedium">Ends On</Text>
+                <Button mode="outlined" onPress={() => setActivePicker('endDate')} icon="calendar-end" style={styles.dateTimeButton}>
+                  {endDate.toLocaleDateString()}
+                </Button>
+              </View>
+              <View style={styles.dateTimeItem}>
+                <Text variant="labelMedium">End Time</Text>
+                <Button mode="outlined" onPress={() => setActivePicker('endTime')} icon="clock-end" style={styles.dateTimeButton}>
+                  {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Button>
+              </View>
+            </View>
+
+            <View style={styles.durationRow}>
+              <Chip icon="timer-sand" style={{ backgroundColor: theme.colors.secondaryContainer }}>
+                Duration: {formatDuration(durationMinutes)}
+              </Chip>
             </View>
           </View>
-
-          {showDatePicker && (
+          {activePicker && (
             <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
-
-          {showTimePicker && (
-            <DateTimePicker
-              value={date}
-              mode="time"
+              value={activePicker.startsWith('start') ? startDate : endDate}
+              mode={activePicker.endsWith('Date') ? 'date' : 'time'}
               is24Hour={true}
               display="default"
-              onChange={onTimeChange}
+              onChange={handlePickerChange}
             />
           )}
 
@@ -294,6 +375,9 @@ const styles = StyleSheet.create({
   searchSection: {
     marginBottom: 20,
   },
+  dateTimeSection: {
+    marginBottom: 16,
+  },
   searchBar: {
     elevation: 2,
     backgroundColor: 'white',
@@ -318,13 +402,16 @@ const styles = StyleSheet.create({
   dateTimeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   dateTimeItem: {
     flex: 0.48,
   },
   dateTimeButton: {
     marginTop: 4,
+  },
+  durationRow: {
+    marginBottom: 12,
   },
   imageScroll: {
     flexDirection: 'row',
