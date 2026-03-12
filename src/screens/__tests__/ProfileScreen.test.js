@@ -37,6 +37,13 @@ const waitForInitialProfileLoad = async (screen) => {
   await waitFor(() => expect(getDoc).toHaveBeenCalled());
 };
 
+const pressAlertAction = label => {
+  const lastAlertCall = Alert.alert.mock.calls[Alert.alert.mock.calls.length - 1];
+  const buttons = lastAlertCall?.[2] || [];
+  const button = buttons.find(option => option.text === label);
+  button?.onPress?.();
+};
+
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -279,6 +286,7 @@ describe('ProfileScreen', () => {
     fireEvent.press(screen.getByText('EDIT'));
     await screen.findByText('Profile Picture');
     fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(FileSystem.uploadAsync).toHaveBeenCalled();
@@ -295,6 +303,7 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(screen.getByText('EDIT'));
     fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(screen.getByText('Permission to access camera roll is required!')).toBeTruthy();
@@ -314,6 +323,7 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(screen.getByText('EDIT'));
     fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
@@ -336,6 +346,7 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(screen.getByText('EDIT'));
     fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(screen.getByText('Image upload failed: Network error')).toBeTruthy();
@@ -359,9 +370,51 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(screen.getByText('EDIT'));
     fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(screen.getByText(/Image upload failed: Upload failed with status: 500/)).toBeTruthy();
+    });
+  });
+
+  it('uploads a profile image from the camera', async () => {
+    ImagePicker.requestCameraPermissionsAsync.mockResolvedValueOnce({ granted: true });
+    ImagePicker.launchCameraAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file://camera-photo.jpg' }],
+    });
+    FileSystem.uploadAsync.mockResolvedValueOnce({
+      status: 200,
+      body: JSON.stringify({ downloadTokens: 'camera-token' }),
+    });
+
+    const screen = renderWithUser();
+
+    await waitForInitialProfileLoad(screen);
+
+    fireEvent.press(screen.getByText('EDIT'));
+    fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Camera');
+
+    await waitFor(() => {
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+      expect(FileSystem.uploadAsync).toHaveBeenCalled();
+    });
+  });
+
+  it('shows an error when camera permission is denied', async () => {
+    ImagePicker.requestCameraPermissionsAsync.mockResolvedValueOnce({ granted: false });
+    const screen = renderWithUser();
+
+    await waitForInitialProfileLoad(screen);
+
+    fireEvent.press(screen.getByText('EDIT'));
+    fireEvent.press(screen.getByText('Upload New Image'));
+    pressAlertAction('Camera');
+
+    await waitFor(() => {
+      expect(screen.getByText('Permission to access camera is required!')).toBeTruthy();
+      expect(FileSystem.uploadAsync).not.toHaveBeenCalled();
     });
   });
 

@@ -20,6 +20,13 @@ const defaultProps = {
   },
 };
 
+const pressAlertAction = label => {
+  const lastAlertCall = Alert.alert.mock.calls[Alert.alert.mock.calls.length - 1];
+  const buttons = lastAlertCall?.[2] || [];
+  const button = buttons.find(option => option.text === label);
+  button?.onPress?.();
+};
+
 describe('CreateEventModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -157,6 +164,9 @@ describe('CreateEventModal', () => {
   });
 
   it('handles image picking and removal', async () => {
+    jest.spyOn(ImagePicker, 'requestMediaLibraryPermissionsAsync').mockResolvedValueOnce({
+      granted: true,
+    });
     jest.spyOn(ImagePicker, 'launchImageLibraryAsync').mockResolvedValueOnce({
       canceled: false,
       assets: [{ uri: 'file://test-image.jpg' }],
@@ -165,6 +175,7 @@ describe('CreateEventModal', () => {
     const { getByText, queryByText } = render(<CreateEventModal {...defaultProps} />);
 
     fireEvent.press(getByText('Add'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(getByText('close-circle')).toBeTruthy();
@@ -178,6 +189,9 @@ describe('CreateEventModal', () => {
   });
 
   it('does not add images when the picker is cancelled', async () => {
+    jest.spyOn(ImagePicker, 'requestMediaLibraryPermissionsAsync').mockResolvedValueOnce({
+      granted: true,
+    });
     jest.spyOn(ImagePicker, 'launchImageLibraryAsync').mockResolvedValueOnce({
       canceled: true,
       assets: [],
@@ -186,6 +200,7 @@ describe('CreateEventModal', () => {
     const { getByText, queryByText } = render(<CreateEventModal {...defaultProps} />);
 
     fireEvent.press(getByText('Add'));
+    pressAlertAction('Photos');
 
     await waitFor(() => {
       expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
@@ -195,14 +210,18 @@ describe('CreateEventModal', () => {
   });
 
   it('includes selected image uris when saving', async () => {
-    jest.spyOn(ImagePicker, 'launchImageLibraryAsync').mockResolvedValueOnce({
+    jest.spyOn(ImagePicker, 'requestCameraPermissionsAsync').mockResolvedValueOnce({
+      granted: true,
+    });
+    jest.spyOn(ImagePicker, 'launchCameraAsync').mockResolvedValueOnce({
       canceled: false,
       assets: [{ uri: 'file://picked-image.jpg' }],
     });
-
+ 
     const { getByText, getByLabelText } = render(<CreateEventModal {...defaultProps} />);
 
     fireEvent.press(getByText('Add'));
+    pressAlertAction('Camera');
 
     await waitFor(() => {
       expect(getByText('close-circle')).toBeTruthy();
@@ -219,6 +238,42 @@ describe('CreateEventModal', () => {
           category: 'Sports',
           images: ['file://picked-image.jpg'],
         })
+      );
+    });
+  });
+
+  it('shows a permission error when camera access is denied', async () => {
+    jest.spyOn(ImagePicker, 'requestCameraPermissionsAsync').mockResolvedValueOnce({
+      granted: false,
+    });
+
+    const { getByText } = render(<CreateEventModal {...defaultProps} />);
+
+    fireEvent.press(getByText('Add'));
+    pressAlertAction('Camera');
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Permission Required',
+        'Please allow camera access to take event photos.'
+      );
+    });
+  });
+
+  it('shows a permission error when photo library access is denied', async () => {
+    jest.spyOn(ImagePicker, 'requestMediaLibraryPermissionsAsync').mockResolvedValueOnce({
+      granted: false,
+    });
+
+    const { getByText } = render(<CreateEventModal {...defaultProps} />);
+
+    fireEvent.press(getByText('Add'));
+    pressAlertAction('Photos');
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Permission Required',
+        'Please allow photo library access to choose event images.'
       );
     });
   });

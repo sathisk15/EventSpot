@@ -69,15 +69,26 @@ const ProfileScreen = ({ navigation }) => {
     return 'U';
   };
 
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+  const chooseProfileImage = async (source) => {
+    const isCamera = source === 'camera';
+    const permissionResult = isCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
     if (permissionResult.granted === false) {
-      setErrorMsg("Permission to access camera roll is required!");
+      setErrorMsg(
+        isCamera
+          ? 'Permission to access camera is required!'
+          : 'Permission to access camera roll is required!'
+      );
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const picker = isCamera
+      ? ImagePicker.launchCameraAsync
+      : ImagePicker.launchImageLibraryAsync;
+
+    const result = await picker({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
@@ -87,6 +98,14 @@ const ProfileScreen = ({ navigation }) => {
     if (!result.canceled && result.assets[0].uri) {
       uploadImage(result.assets[0].uri);
     }
+  };
+
+  const pickImage = async () => {
+    Alert.alert('Profile Picture', 'Choose image source', [
+      { text: 'Camera', onPress: () => chooseProfileImage('camera') },
+      { text: 'Photos', onPress: () => chooseProfileImage('photos') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const uploadImage = async (uri) => {

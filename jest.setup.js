@@ -57,7 +57,9 @@ jest.mock('expo-file-system/legacy', () => ({
 
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),
+  launchCameraAsync: jest.fn(() => Promise.resolve({ canceled: true })),
   MediaTypeOptions: { Images: 'Images', All: 'All', Videos: 'Videos' },
 }));
 

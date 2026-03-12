@@ -228,16 +228,55 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
     }
   };
 
-  const handlePickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+  const addPickedImages = assets => {
+    if (!assets?.length) {
+      return;
+    }
+
+    setImages(currentImages => [...currentImages, ...assets]);
+  };
+
+  const openPhotoLibrary = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Please allow photo library access to choose event images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.7,
     });
 
     if (!result.canceled) {
-      setImages([...images, ...result.assets]);
+      addPickedImages(result.assets);
     }
+  };
+
+  const openCamera = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Please allow camera access to take event photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      addPickedImages(result.assets);
+    }
+  };
+
+  const handlePickImage = async () => {
+    Alert.alert('Add Image', 'Choose image source', [
+      { text: 'Camera', onPress: openCamera },
+      { text: 'Photos', onPress: openPhotoLibrary },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const removeImage = (index) => {
