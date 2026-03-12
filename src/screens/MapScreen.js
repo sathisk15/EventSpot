@@ -21,6 +21,7 @@ import {
   Chip,
 } from 'react-native-paper';
 import { useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {WebView} from 'react-native-webview';
 import * as Location from 'expo-location';
 import {AuthContext} from '../contexts/AuthContext';
@@ -41,6 +42,8 @@ const formatCoordinateFallback = (latitude, longitude) =>
   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 
 const ALL_EVENT_CATEGORIES = 'All';
+const APPBAR_CONTENT_HEIGHT = 64;
+const HEADER_TO_CONTROLS_GAP = 32;
 
 const normalizeFilterValue = value => value?.trim().toLowerCase() || '';
 
@@ -79,6 +82,7 @@ const MapScreen = ({navigation, route}) => {
   const theme = useTheme();
   const webViewRef = useRef(null);
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
 
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -728,7 +732,14 @@ const MapScreen = ({navigation, route}) => {
         </TouchableOpacity>
       </Appbar.Header>
 
-      <View style={styles.searchContainer}>
+      <View
+        testID="map-search-container"
+        style={[
+          styles.searchContainer,
+          {
+            top: insets.top + APPBAR_CONTENT_HEIGHT + HEADER_TO_CONTROLS_GAP,
+          },
+        ]}>
         <Card style={styles.controlsCard}>
           <Text style={styles.controlsLabel}>Find a place</Text>
           <Searchbar

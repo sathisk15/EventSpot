@@ -166,6 +166,16 @@ describe('MapScreen', () => {
     expect(getByText('Mapping your world...')).toBeTruthy();
   });
 
+  it('positions the top controls below the header area', async () => {
+    const { getByTestId } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => {
+      expect(fetchEvents).toHaveBeenCalled();
+    });
+
+    expect(getByTestId('map-search-container')).toHaveStyle({ top: 96 });
+  });
+
   it('loads location and events on mount', async () => {
     const mockEvents = [{ id: '1', name: 'Test Event', location: { latitude: 51.1079, longitude: 17.0385 } }];
     fetchEvents.mockResolvedValue(mockEvents);
