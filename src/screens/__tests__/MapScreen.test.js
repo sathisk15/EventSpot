@@ -278,14 +278,20 @@ describe('MapScreen', () => {
   });
 
   it('renders event filter controls and summary', async () => {
-    const { getByPlaceholderText, getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+    const { getByTestId, getByPlaceholderText, getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    expect(getByText('Find a place')).toBeTruthy();
+    expect(getByText('1 event')).toBeTruthy();
+    expect(getByText('Show Filters')).toBeTruthy();
+
+    fireEvent.press(getByTestId('toggle-filters'));
 
     expect(
       getByPlaceholderText('Filter events by name, address, or category...')
     ).toBeTruthy();
-    expect(getByText('1 event shown')).toBeTruthy();
+    expect(getByText('Filter events')).toBeTruthy();
     expect(getByText('All')).toBeTruthy();
     expect(getByText('Music')).toBeTruthy();
   });
@@ -316,13 +322,14 @@ describe('MapScreen', () => {
     expect(getByTestId('webview-mock').props.source.html).toContain('Cool Concert');
     expect(getByTestId('webview-mock').props.source.html).toContain('Food Market');
 
+    fireEvent.press(getByTestId('toggle-filters'));
     fireEvent.changeText(
       getByPlaceholderText('Filter events by name, address, or category...'),
       'Market'
     );
 
     await waitFor(() => {
-      expect(getByText('1 event shown')).toBeTruthy();
+      expect(getByText('1 event')).toBeTruthy();
       expect(getByTestId('webview-mock').props.source.html).toContain('Food Market');
       expect(getByTestId('webview-mock').props.source.html).not.toContain('Cool Concert');
     });
@@ -348,10 +355,11 @@ describe('MapScreen', () => {
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
+    fireEvent.press(getByTestId('toggle-filters'));
     fireEvent.press(getByText('Networking'));
 
     await waitFor(() => {
-      expect(getByText('1 event shown')).toBeTruthy();
+      expect(getByText('1 event')).toBeTruthy();
       expect(getByTestId('webview-mock').props.source.html).toContain('Startup Mixer');
       expect(getByTestId('webview-mock').props.source.html).not.toContain('Cool Concert');
     });
@@ -359,7 +367,7 @@ describe('MapScreen', () => {
     fireEvent.press(getByText('All'));
 
     await waitFor(() => {
-      expect(getByText('2 events shown')).toBeTruthy();
+      expect(getByText('2 events')).toBeTruthy();
       expect(getByTestId('webview-mock').props.source.html).toContain('Startup Mixer');
       expect(getByTestId('webview-mock').props.source.html).toContain('Cool Concert');
     });
@@ -388,12 +396,11 @@ describe('MapScreen', () => {
     });
   });
 
-  it('recenters map when FAB action is pressed', async () => {
-    const { getByText, getByTestId } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+  it('recenters map when action dock button is pressed', async () => {
+    const { getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
-    fireEvent.press(getByText('plus')); // Open FAB Group
     fireEvent.press(getByText('Recenter'));
 
     await waitFor(() => {
@@ -411,7 +418,6 @@ describe('MapScreen', () => {
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
-    fireEvent.press(getByText('plus'));
     fireEvent.press(getByText('Recenter'));
 
     await waitFor(() => {
@@ -463,24 +469,22 @@ describe('MapScreen', () => {
     consoleSpy.mockRestore();
   });
 
-  it('handles FAB "Add Event" action', async () => {
+  it('handles action dock "Add Event" action', async () => {
     const { getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
     
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
     
-    fireEvent.press(getByText('plus')); // Open FAB
     fireEvent.press(getByText('Add Event'));
     
     expect(getByText('Create Event Mock')).toBeTruthy();
     expect(getByText('No Initial Location')).toBeTruthy();
   });
 
-  it('navigates to My Events from the FAB menu', async () => {
-    const { getByText, getByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+  it('navigates to My Events from the action dock', async () => {
+    const { getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
-    fireEvent.press(getByTestId('fab-toggle'));
     fireEvent.press(getByText('My Events'));
 
     expect(mockNavigation.navigate).toHaveBeenCalledWith('MyEvents');
@@ -493,11 +497,10 @@ describe('MapScreen', () => {
       .mockResolvedValueOnce(mockEvents)
       .mockRejectedValueOnce(new Error('Refresh failed'));
 
-    const { getByText, getByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+    const { getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
 
-    fireEvent.press(getByTestId('fab-toggle'));
     fireEvent.press(getByText('Add Event'));
     fireEvent.press(getByText('save-modal'));
 
@@ -515,7 +518,6 @@ describe('MapScreen', () => {
     await waitFor(() => expect(queryByText('Mapping your world...')).toBeNull());
     
     // Open and dismiss CreateEventModal
-    fireEvent.press(getByTestId('fab-toggle'));
     fireEvent.press(getByText('Add Event'));
     expect(getByText('Create Event Mock')).toBeTruthy();
     
@@ -537,11 +539,10 @@ describe('MapScreen', () => {
   });
 
   it('handles onSaveEvent in MapScreen', async () => {
-    const { getByText, getByTestId } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+    const { getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
     
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
     
-    fireEvent.press(getByTestId('fab-toggle'));
     fireEvent.press(getByText('Add Event'));
     
     fireEvent.press(getByText('save-modal'));
@@ -714,7 +715,7 @@ describe('MapScreen', () => {
     consoleSpy.mockRestore();
   });
 
-  it('clears the clicked location when opening the modal from the FAB after a map click', async () => {
+  it('clears the clicked location when opening the modal from the action dock after a map click', async () => {
     const { getByTestId, getByText, queryByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
@@ -734,7 +735,6 @@ describe('MapScreen', () => {
       expect(queryByText('Create Event Mock')).toBeNull();
     });
 
-    fireEvent.press(getByTestId('fab-toggle'));
     fireEvent.press(getByText('Add Event'));
 
     expect(getByText('No Initial Location')).toBeTruthy();

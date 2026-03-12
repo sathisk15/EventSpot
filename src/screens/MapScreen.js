@@ -89,9 +89,7 @@ const MapScreen = ({navigation}) => {
   const [eventFilterCategory, setEventFilterCategory] = useState(
     ALL_EVENT_CATEGORIES,
   );
-
-  // FAB Group state
-  const [fabOpen, setFabOpen] = useState(false);
+  const [showEventFilters, setShowEventFilters] = useState(false);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -593,77 +591,113 @@ const MapScreen = ({navigation}) => {
       </Appbar.Header>
 
       <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Search location..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          onSubmitEditing={() => handleSearch(searchQuery)}
-          onClearIconPress={() => {
-            setSearchQuery('');
-            setSearchResults([]);
-            setShowResults(false);
-          }}
-          loading={searchLoading}
-          style={styles.searchBar}
-        />
-        {showResults && searchResults.length > 0 && (
-          <Card style={styles.resultsCard}>
-            <List.Section>
-              {searchResults.map((item, index) => (
-                <List.Item
-                  key={index}
-                  title={item.display_name}
-                  onPress={() => selectSearchResult(item)}
-                  left={props => <List.Icon {...props} icon="map-marker" />}
-                />
-              ))}
-            </List.Section>
-          </Card>
-        )}
-        <Card style={styles.filterCard}>
+        <Card style={styles.controlsCard}>
+          <Text style={styles.controlsLabel}>Find a place</Text>
           <Searchbar
-            placeholder="Filter events by name, address, or category..."
-            onChangeText={setEventFilterQuery}
-            value={eventFilterQuery}
-            onClearIconPress={() => setEventFilterQuery('')}
-            style={styles.filterSearchBar}
+            placeholder="Search location..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            onSubmitEditing={() => handleSearch(searchQuery)}
+            onClearIconPress={() => {
+              setSearchQuery('');
+              setSearchResults([]);
+              setShowResults(false);
+            }}
+            loading={searchLoading}
+            style={styles.searchBar}
           />
-          <Text style={styles.filterSummary}>
-            {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} shown
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterChips}>
-            {[ALL_EVENT_CATEGORIES, ...EVENT_CATEGORIES].map(category => {
-              const selected = eventFilterCategory === category;
+          <View style={styles.controlsRow}>
+            <TouchableOpacity
+              testID="toggle-filters"
+              onPress={() => setShowEventFilters(current => !current)}
+              style={[
+                styles.controlButton,
+                {
+                  backgroundColor: showEventFilters
+                    ? theme.colors.primary
+                    : theme.colors.surfaceVariant || '#EFF3F7',
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.controlButtonText,
+                  {
+                    color: showEventFilters
+                      ? theme.colors.onPrimary || '#FFFFFF'
+                      : theme.colors.onSurface || '#0F172A',
+                  },
+                ]}>
+                {showEventFilters ? 'Hide Filters' : 'Show Filters'}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.summaryPill}>
+              <Text style={styles.summaryPillText}>
+                {filteredEvents.length}{' '}
+                {filteredEvents.length === 1 ? 'event' : 'events'}
+              </Text>
+            </View>
+          </View>
 
-              return (
-                <Chip
-                  key={category}
-                  selected={selected}
-                  onPress={() => setEventFilterCategory(category)}
-                  style={[
-                    styles.filterChip,
-                    selected && {
-                      backgroundColor:
-                        theme.colors.primaryContainer || '#DCEBFF',
-                    },
-                  ]}
-                  textStyle={
-                    selected
-                      ? {
-                          color:
-                            theme.colors.onPrimaryContainer ||
-                            theme.colors.primary,
-                        }
-                      : undefined
-                  }>
-                  {category}
-                </Chip>
-              );
-            })}
-          </ScrollView>
+          {showResults && searchResults.length > 0 && (
+            <Card style={styles.resultsCard}>
+              <List.Section>
+                {searchResults.map((item, index) => (
+                  <List.Item
+                    key={index}
+                    title={item.display_name}
+                    onPress={() => selectSearchResult(item)}
+                    left={props => <List.Icon {...props} icon="map-marker" />}
+                  />
+                ))}
+              </List.Section>
+            </Card>
+          )}
+
+          {showEventFilters && (
+            <Card style={styles.filterCard}>
+              <Text style={styles.controlsLabel}>Filter events</Text>
+              <Searchbar
+                placeholder="Filter events by name, address, or category..."
+                onChangeText={setEventFilterQuery}
+                value={eventFilterQuery}
+                onClearIconPress={() => setEventFilterQuery('')}
+                style={styles.filterSearchBar}
+              />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterChips}>
+                {[ALL_EVENT_CATEGORIES, ...EVENT_CATEGORIES].map(category => {
+                  const selected = eventFilterCategory === category;
+
+                  return (
+                    <Chip
+                      key={category}
+                      selected={selected}
+                      onPress={() => setEventFilterCategory(category)}
+                      style={[
+                        styles.filterChip,
+                        selected && {
+                          backgroundColor:
+                            theme.colors.primaryContainer || '#DCEBFF',
+                        },
+                      ]}
+                      textStyle={
+                        selected
+                          ? {
+                              color:
+                                theme.colors.onPrimaryContainer ||
+                                theme.colors.primary,
+                            }
+                          : undefined
+                      }>
+                      {category}
+                    </Chip>
+                  );
+                })}
+              </ScrollView>
+            </Card>
+          )}
         </Card>
       </View>
 
@@ -731,32 +765,41 @@ const MapScreen = ({navigation}) => {
             />
 
             <Portal>
-              <FAB.Group
-                open={fabOpen}
-                visible={true}
-                icon={fabOpen ? 'close' : 'plus'}
-                actions={[
-                  {
-                    icon: 'calendar-account',
-                    label: 'My Events',
-                    onPress: () => navigation.navigate('MyEvents'),
-                  },
-                  {
-                    icon: 'calendar-plus',
-                    label: 'Add Event',
-                    onPress: openCreateEventModal,
-                  },
-                  {
-                    icon: 'crosshairs-gps',
-                    label: 'Recenter',
-                    onPress: recenterMap,
-                  },
-                ]}
-                onStateChange={({open}) => setFabOpen(open)}
-                fabStyle={[styles.fab, {backgroundColor: theme.colors.primary}]}
-                color={theme.colors.onPrimary}
-                backdropColor="transparent"
-              />
+              <View style={styles.actionDock}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    {backgroundColor: theme.colors.surface},
+                  ]}
+                  onPress={() => navigation.navigate('MyEvents')}>
+                  <Text style={styles.actionLabel}>My Events</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    styles.primaryActionButton,
+                    {backgroundColor: theme.colors.primary},
+                  ]}
+                  onPress={openCreateEventModal}>
+                  <Text
+                    style={[
+                      styles.actionLabel,
+                      {color: theme.colors.onPrimary || '#FFFFFF'},
+                    ]}>
+                    Add Event
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    {backgroundColor: theme.colors.surface},
+                  ]}
+                  onPress={recenterMap}>
+                  <Text style={styles.actionLabel}>
+                    {isRecentering ? 'Recentering...' : 'Recenter'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </Portal>
 
             <CreateEventModal
@@ -795,26 +838,67 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 100,
   },
-  searchBar: {elevation: 4},
-  resultsCard: {marginTop: 4, maxHeight: 250},
+  controlsCard: {
+    padding: 12,
+    borderRadius: 24,
+    elevation: 6,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+  },
+  controlsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    opacity: 0.6,
+    marginBottom: 8,
+  },
+  searchBar: {elevation: 0},
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  controlButton: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  controlButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  summaryPill: {
+    marginLeft: 10,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#F5F7FA',
+  },
+  summaryPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  resultsCard: {
+    marginTop: 10,
+    maxHeight: 250,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
   filterCard: {
-    marginTop: 8,
+    marginTop: 12,
     paddingHorizontal: 10,
     paddingTop: 10,
     paddingBottom: 12,
-    elevation: 4,
+    elevation: 0,
     borderRadius: 20,
+    backgroundColor: '#F8FAFC',
   },
   filterSearchBar: {
     elevation: 0,
   },
-  filterSummary: {
-    marginTop: 8,
-    marginBottom: 10,
-    fontSize: 12,
-    opacity: 0.7,
-  },
   filterChips: {
+    paddingTop: 10,
     paddingRight: 8,
   },
   filterChip: {
@@ -823,7 +907,36 @@ const styles = StyleSheet.create({
   content: {flex: 1, position: 'relative'},
   centerBox: {flex: 1, justifyContent: 'center', alignItems: 'center'},
   map: {flex: 1},
-  fab: {borderRadius: 28},
+  actionDock: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 26,
+    padding: 8,
+    elevation: 10,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    marginHorizontal: 4,
+  },
+  primaryActionButton: {
+    flex: 1.15,
+  },
+  actionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
   avatarContainer: {
     marginRight: 16,
     position: 'relative',
