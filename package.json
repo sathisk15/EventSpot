@@ -5,6 +5,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
+    "android:apk": "sh ./scripts/build-apk.sh release",
+    "android:apk:debug": "sh ./scripts/build-apk.sh debug",
+    "android:apk:release": "sh ./scripts/build-apk.sh release",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
