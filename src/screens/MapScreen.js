@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState, useRef} from 'react';
+import React, {useContext, useEffect, useMemo, useState, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -382,7 +382,7 @@ const MapScreen = ({navigation}) => {
   );
 
   // Leaflet HTML with OpenStreetMap Tiles
-  const mapHtml = `
+  const mapHtml = useMemo(() => `
     <!DOCTYPE html>
     <html>
       <head>
@@ -506,7 +506,7 @@ const MapScreen = ({navigation}) => {
           }
 
           var map = L.map('map', { zoomControl: false, attributionControl: false })
-            .setView([${location?.latitude || 0}, ${location?.longitude || 0}], 15);
+            .setView([0, 0], 2);
           
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
@@ -516,7 +516,7 @@ const MapScreen = ({navigation}) => {
             html: '<div class="pulse"></div><div class="target-dot"></div>',
             iconSize: [30, 30], iconAnchor: [15, 15]
           });
-          var userMarker = L.marker([${location?.latitude || 0}, ${location?.longitude || 0}], { icon: userIcon }).addTo(map);
+          var userMarker = L.marker([0, 0], { icon: userIcon }).addTo(map);
 
           // Event Markers Group
           var eventMarkersLayer = L.layerGroup().addTo(map);
@@ -570,7 +570,7 @@ const MapScreen = ({navigation}) => {
           window.ReactNativeWebView.postMessage(JSON.stringify({type: 'READY'}));
 
           // Initial Render
-          renderEvents(${JSON.stringify(filteredEvents)});
+          renderEvents([]);
 
           // Map Click Handler
           var tempMarker;
@@ -621,7 +621,7 @@ const MapScreen = ({navigation}) => {
         </script>
       </body>
     </html>
-  `;
+  `, [theme.colors.primary, theme.colors.secondary]);
 
   return (
     <View
@@ -804,6 +804,15 @@ const MapScreen = ({navigation}) => {
                     'Leaflet is ready, pushing initial events:',
                     events.length,
                   );
+                  if (location) {
+                    webViewRef.current?.postMessage(
+                      JSON.stringify({
+                        type: 'UPDATE_LOCATION',
+                        lat: location.latitude,
+                        lng: location.longitude,
+                      }),
+                    );
+                  }
                   webViewRef.current?.postMessage(
                     JSON.stringify({
                       type: 'SET_EVENTS',

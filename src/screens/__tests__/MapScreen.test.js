@@ -92,6 +92,12 @@ const createFetchMock = ({ reverseAddress = 'Resolved Address', searchResults } 
     return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
   });
 
+const getLastMapMessage = () => {
+  const calls = global.__WEBVIEW_POST_MESSAGE_MOCK__?.mock?.calls || [];
+  const lastCall = calls[calls.length - 1];
+  return lastCall ? JSON.parse(lastCall[0]) : null;
+};
+
 describe('MapScreen', () => {
   let focusListener;
   let eventsSubscriptionHandler;
@@ -206,7 +212,15 @@ describe('MapScreen', () => {
     });
 
     await waitFor(() => {
-      expect(getByTestId('webview-mock').props.source.html).toContain('Live Event');
+      expect(getLastMapMessage()).toEqual({
+        type: 'SET_EVENTS',
+        events: [
+          expect.objectContaining({
+            id: 'ev-live',
+            name: 'Live Event',
+          }),
+        ],
+      });
     });
   });
 
@@ -377,8 +391,13 @@ describe('MapScreen', () => {
 
     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
 
-    expect(getByTestId('webview-mock').props.source.html).toContain('Cool Concert');
-    expect(getByTestId('webview-mock').props.source.html).toContain('Food Market');
+    expect(getLastMapMessage()).toEqual({
+      type: 'SET_EVENTS',
+      events: expect.arrayContaining([
+        expect.objectContaining({name: 'Cool Concert'}),
+        expect.objectContaining({name: 'Food Market'}),
+      ]),
+    });
 
     fireEvent.press(getByTestId('toggle-filters'));
     fireEvent.changeText(
@@ -388,8 +407,10 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(getByText('1 event')).toBeTruthy();
-      expect(getByTestId('webview-mock').props.source.html).toContain('Food Market');
-      expect(getByTestId('webview-mock').props.source.html).not.toContain('Cool Concert');
+      expect(getLastMapMessage()).toEqual({
+        type: 'SET_EVENTS',
+        events: [expect.objectContaining({name: 'Food Market'})],
+      });
     });
   });
 
@@ -418,16 +439,23 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(getByText('1 event')).toBeTruthy();
-      expect(getByTestId('webview-mock').props.source.html).toContain('Startup Mixer');
-      expect(getByTestId('webview-mock').props.source.html).not.toContain('Cool Concert');
+      expect(getLastMapMessage()).toEqual({
+        type: 'SET_EVENTS',
+        events: [expect.objectContaining({name: 'Startup Mixer'})],
+      });
     });
 
     fireEvent.press(getByText('All'));
 
     await waitFor(() => {
       expect(getByText('2 events')).toBeTruthy();
-      expect(getByTestId('webview-mock').props.source.html).toContain('Startup Mixer');
-      expect(getByTestId('webview-mock').props.source.html).toContain('Cool Concert');
+      expect(getLastMapMessage()).toEqual({
+        type: 'SET_EVENTS',
+        events: expect.arrayContaining([
+          expect.objectContaining({name: 'Startup Mixer'}),
+          expect.objectContaining({name: 'Cool Concert'}),
+        ]),
+      });
     });
   });
 
