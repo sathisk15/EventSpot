@@ -8,6 +8,9 @@ import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
 import { saveEvent, fetchEvents } from '../services/eventService';
 
+const formatCoordinateFallback = (latitude, longitude) =>
+  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+
 const MapScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
   const theme = useTheme();
@@ -39,6 +42,26 @@ const MapScreen = ({ navigation }) => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  const resolveAddress = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+        { headers: { 'User-Agent': 'EventSpotApp/1.0' } }
+      );
+      const data = await response.json();
+      return data.display_name || formatCoordinateFallback(latitude, longitude);
+    } catch (error) {
+      console.error("Reverse geocode failed:", error);
+      return formatCoordinateFallback(latitude, longitude);
+    }
+  };
+
+  const buildResolvedLocation = async (latitude, longitude) => ({
+    latitude,
+    longitude,
+    address: await resolveAddress(latitude, longitude),
+  });
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -73,7 +96,7 @@ const MapScreen = ({ navigation }) => {
           longitude: currentLocation.coords.longitude,
         };
         setLocation(loc);
-        setSelectedLocation({ ...loc, address: 'Your Current Location' });
+        setSelectedLocation(await buildResolvedLocation(loc.latitude, loc.longitude));
       }
 
       // 2. Fetch Events
@@ -163,7 +186,7 @@ const MapScreen = ({ navigation }) => {
       };
       
       setLocation(newLoc);
-      setSelectedLocation({ ...newLoc, address: 'Current Location' });
+      setSelectedLocation(await buildResolvedLocation(newLoc.latitude, newLoc.longitude));
       
       webViewRef.current.postMessage(JSON.stringify({
         type: 'UPDATE_LOCATION',
@@ -193,6 +216,12 @@ const MapScreen = ({ navigation }) => {
     if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
     if (user?.email) return user.email.charAt(0).toUpperCase();
     return 'U';
+  };
+
+  const handleMapClick = async (latitude, longitude) => {
+    const resolvedLocation = await buildResolvedLocation(latitude, longitude);
+    setSelectedLocation(resolvedLocation);
+    setModalVisible(true);
   };
 
   // Leaflet HTML with OpenStreetMap Tiles
@@ -461,12 +490,7 @@ const MapScreen = ({ navigation }) => {
                     setDetailVisible(true);
                   }
                 } else if (data.type === 'MAP_CLICK') {
-                  setSelectedLocation({
-                    latitude: data.lat,
-                    longitude: data.lng,
-                    address: 'Dropped Pin'
-                  });
-                  setModalVisible(true);
+                  handleMapClick(data.lat, data.lng);
                 }
               }}
             />
@@ -520,4 +544,3 @@ const styles = StyleSheet.create({
 });
 
 export default MapScreen;
-

@@ -16,9 +16,10 @@ jest.mock('../../services/eventService', () => ({
 // Mock Modals to isolate MapScreen tests
 jest.mock('../../components/CreateEventModal', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
-  return ({ visible, onDismiss, onSave }) => visible ? (
+  return ({ visible, onDismiss, onSave, initialLocation }) => visible ? (
     <View testID="create-event-modal-mock">
       <Text>Create Event Mock</Text>
+      <Text>{initialLocation?.address || 'No Initial Location'}</Text>
       <TouchableOpacity onPress={() => onDismiss()}><Text>close-modal</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => onSave({ name: 'New' })}><Text>save-modal</Text></TouchableOpacity>
     </View>
@@ -55,6 +56,28 @@ const providers = ({ children }) => (
   </AuthContext.Provider>
 );
 
+const createFetchMock = ({ reverseAddress = 'Resolved Address', searchResults } = {}) =>
+  jest.fn((url) => {
+    if (url.includes('/reverse')) {
+      return Promise.resolve({
+        status: 200,
+        json: () => Promise.resolve({ display_name: reverseAddress }),
+      });
+    }
+
+    if (url.includes('/search')) {
+      return Promise.resolve({
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            searchResults || [{ lat: '52.2297', lon: '21.0122', display_name: 'Warsaw, Poland' }]
+          ),
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
+  });
+
 describe('MapScreen', () => {
   const mockEvents = [{ id: 'ev1', name: 'Cool Concert', location: { latitude: 51, longitude: 17 }, date: new Date().toISOString() }];
 
@@ -68,6 +91,7 @@ describe('MapScreen', () => {
       coords: { latitude: 51.1079, longitude: 17.0385 }
     });
     fetchEvents.mockResolvedValue(mockEvents);
+    global.fetch = createFetchMock();
   });
 
   it('renders loading state initially', async () => {
@@ -130,6 +154,7 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(getByText('Create Event Mock')).toBeTruthy();
+      expect(getByText('Resolved Address')).toBeTruthy();
     });
   });
 
@@ -153,12 +178,7 @@ describe('MapScreen', () => {
   });
 
   it('performs location search and updates map', async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        status: 200,
-        json: () => Promise.resolve([{ lat: '52.2297', lon: '21.0122', display_name: 'Warsaw, Poland' }]),
-      })
-    );
+    global.fetch = createFetchMock();
 
     const { getByPlaceholderText, getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
@@ -182,7 +202,14 @@ describe('MapScreen', () => {
   });
 
   it('handles search failure', async () => {
-    global.fetch = jest.fn(() => Promise.reject(new Error('Network error')));
+    global.fetch = jest.fn((url) =>
+      url.includes('/reverse')
+        ? Promise.resolve({
+            status: 200,
+            json: () => Promise.resolve({ display_name: 'Resolved Address' }),
+          })
+        : Promise.reject(new Error('Network error'))
+    );
 
     const { getByPlaceholderText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
 
@@ -281,6 +308,7 @@ describe('MapScreen', () => {
     fireEvent.press(getByText('Add Event'));
     
     expect(getByText('Create Event Mock')).toBeTruthy();
+    expect(getByText('Resolved Address')).toBeTruthy();
   });
 
   it('logs refresh failures after saving a new event', async () => {
@@ -350,6 +378,8 @@ describe('MapScreen', () => {
 
   it('handles search query clearing', async () => {
     const { getByPlaceholderText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
     const searchInput = getByPlaceholderText('Search location...');
     
     fireEvent(searchInput, 'onClearIconPress');
@@ -395,10 +425,42 @@ describe('MapScreen', () => {
 
   it('handles search with empty query', async () => {
      const { getByPlaceholderText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+     await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+     global.fetch.mockClear();
      const searchInput = getByPlaceholderText('Search location...');
      fireEvent.changeText(searchInput, '');
      fireEvent(searchInput, 'onSubmitEditing');
      // Should return early, no fetch called
      expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to coordinate text when reverse geocoding fails on map click', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    global.fetch = jest.fn((url) =>
+      url.includes('/reverse')
+        ? Promise.reject(new Error('Reverse geocode failed'))
+        : Promise.resolve({
+            status: 200,
+            json: () => Promise.resolve([{ lat: '52.2297', lon: '21.0122', display_name: 'Warsaw, Poland' }]),
+          })
+    );
+
+    const { getByTestId, getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent(getByTestId('webview-mock'), 'onMessage', JSON.stringify({
+      type: 'MAP_CLICK',
+      lat: 51.1079,
+      lng: 17.0385
+    }));
+
+    await waitFor(() => {
+      expect(getByText('51.10790, 17.03850')).toBeTruthy();
+      expect(consoleSpy).toHaveBeenCalledWith('Reverse geocode failed:', expect.any(Error));
+    });
+
+    consoleSpy.mockRestore();
   });
 });
