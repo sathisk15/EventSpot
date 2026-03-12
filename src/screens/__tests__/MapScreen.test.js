@@ -113,6 +113,27 @@ describe('MapScreen', () => {
     });
   });
 
+  it('uses a background-image element for event marker photos', async () => {
+    fetchEvents.mockResolvedValue([
+      {
+        id: 'photo-event',
+        name: 'Photo Event',
+        images: ['https://example.com/photo.jpg'],
+        location: { latitude: 51.1079, longitude: 17.0385 },
+      },
+    ]);
+
+    const { getByTestId } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    const webview = getByTestId('webview-mock');
+    expect(webview.props.source.html).toContain('class="event-pin-photo"');
+    expect(webview.props.source.html).toContain('background-image: url(&quot;');
+    expect(webview.props.source.html).toContain("ev.images[0]");
+    expect(webview.props.source.html).not.toContain('<img src=');
+  });
+
   it('falls back to the last known position when live GPS fails', async () => {
     Location.getCurrentPositionAsync.mockRejectedValueOnce(new Error('GPS unavailable'));
     Location.getLastKnownPositionAsync.mockResolvedValueOnce({

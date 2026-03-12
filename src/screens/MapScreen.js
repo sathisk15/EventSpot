@@ -1,26 +1,44 @@
-import React, { useContext, useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Alert, TouchableOpacity, Keyboard } from 'react-native';
-import { Text, Appbar, useTheme, ActivityIndicator, Avatar, FAB, Searchbar, List, Card, Portal } from 'react-native-paper';
-import { WebView } from 'react-native-webview';
+import React, {useContext, useEffect, useState, useRef} from 'react';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  TouchableOpacity,
+  Keyboard,
+} from 'react-native';
+import {
+  Text,
+  Appbar,
+  useTheme,
+  ActivityIndicator,
+  Avatar,
+  FAB,
+  Searchbar,
+  List,
+  Card,
+  Portal,
+} from 'react-native-paper';
+import {WebView} from 'react-native-webview';
 import * as Location from 'expo-location';
-import { AuthContext } from '../contexts/AuthContext';
+import {AuthContext} from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
-import { saveEvent, fetchEvents } from '../services/eventService';
+import {saveEvent, fetchEvents} from '../services/eventService';
 
 const formatCoordinateFallback = (latitude, longitude) =>
   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 
-const MapScreen = ({ navigation }) => {
-  const { user } = useContext(AuthContext);
+const MapScreen = ({navigation}) => {
+  const {user} = useContext(AuthContext);
   const theme = useTheme();
   const webViewRef = useRef(null);
-  
+
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRecentering, setIsRecentering] = useState(false);
-  
+
   // Events state
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -47,12 +65,12 @@ const MapScreen = ({ navigation }) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
-        { headers: { 'User-Agent': 'EventSpotApp/1.0' } }
+        {headers: {'User-Agent': 'EventSpotApp/1.0'}},
       );
       const data = await response.json();
       return data.display_name || formatCoordinateFallback(latitude, longitude);
     } catch (error) {
-      console.error("Reverse geocode failed:", error);
+      console.error('Reverse geocode failed:', error);
       return formatCoordinateFallback(latitude, longitude);
     }
   };
@@ -67,7 +85,7 @@ const MapScreen = ({ navigation }) => {
     setLoading(true);
     try {
       // 1. Fetch Location
-      let { status } = await Location.requestForegroundPermissionsAsync();
+      let {status} = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setErrorMsg('Permission to access location was denied');
         setLoading(false);
@@ -89,7 +107,7 @@ const MapScreen = ({ navigation }) => {
       } catch (e) {
         currentLocation = await Location.getLastKnownPositionAsync({});
       }
-      
+
       if (currentLocation) {
         const loc = {
           latitude: currentLocation.coords.latitude,
@@ -101,9 +119,8 @@ const MapScreen = ({ navigation }) => {
       // 2. Fetch Events
       const fetchedEvents = await fetchEvents();
       setEvents(fetchedEvents);
-
     } catch (error) {
-      console.error("Initialization error:", error);
+      console.error('Initialization error:', error);
       setErrorMsg('Error initializing map data');
     } finally {
       setLoading(false);
@@ -114,90 +131,99 @@ const MapScreen = ({ navigation }) => {
     try {
       const fetchedEvents = await fetchEvents();
       setEvents(fetchedEvents);
-      
+
       // Update the Leaflet map with new events
       if (webViewRef.current) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'SET_EVENTS',
-          events: fetchedEvents
-        }));
+        webViewRef.current.postMessage(
+          JSON.stringify({
+            type: 'SET_EVENTS',
+            events: fetchedEvents,
+          }),
+        );
       }
     } catch (error) {
-      console.error("Refresh events error:", error);
+      console.error('Refresh events error:', error);
     }
   };
 
-  const handleSearch = async (query) => {
+  const handleSearch = async query => {
     if (!query) return;
     setSearchLoading(true);
     setShowResults(true);
     try {
-      console.log("Searching Nominatim for:", query);
+      console.log('Searching Nominatim for:', query);
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-        { headers: { 'User-Agent': 'EventSpotApp/1.0' } }
+        {headers: {'User-Agent': 'EventSpotApp/1.0'}},
       );
-      console.log("Nominatim response status:", response.status);
+      console.log('Nominatim response status:', response.status);
       const data = await response.json();
       setSearchResults(data);
     } catch (error) {
-      console.error("Search fetch failed:", error);
-      Alert.alert('Search Error', `Network request failed. Please check your internet connection.`);
+      console.error('Search fetch failed:', error);
+      Alert.alert(
+        'Search Error',
+        `Network request failed. Please check your internet connection.`,
+      );
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const selectSearchResult = (item) => {
+  const selectSearchResult = item => {
     const newLoc = {
       latitude: parseFloat(item.lat),
       longitude: parseFloat(item.lon),
-      address: item.display_name
+      address: item.display_name,
     };
-    
+
     setLocation(newLoc);
     setShowResults(false);
     setSearchQuery(item.display_name);
     Keyboard.dismiss();
 
     if (webViewRef.current) {
-      webViewRef.current.postMessage(JSON.stringify({
-        type: 'UPDATE_LOCATION',
-        lat: newLoc.latitude,
-        lng: newLoc.longitude
-      }));
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'UPDATE_LOCATION',
+          lat: newLoc.latitude,
+          lng: newLoc.longitude,
+        }),
+      );
     }
   };
 
   const recenterMap = async () => {
     if (!webViewRef.current) return;
-    
+
     setIsRecentering(true);
     try {
       let currentLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      
+
       const newLoc = {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
       };
-      
+
       setLocation(newLoc);
-      
-      webViewRef.current.postMessage(JSON.stringify({
-        type: 'UPDATE_LOCATION',
-        lat: newLoc.latitude,
-        lng: newLoc.longitude
-      }));
+
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'UPDATE_LOCATION',
+          lat: newLoc.latitude,
+          lng: newLoc.longitude,
+        }),
+      );
     } catch (error) {
-      console.error("Recenter error:", error);
+      console.error('Recenter error:', error);
     } finally {
       setIsRecentering(false);
     }
   };
 
-  const onSaveEvent = async (eventData) => {
+  const onSaveEvent = async eventData => {
     try {
       await saveEvent(eventData);
       Alert.alert('Success', 'Event created successfully!');
@@ -254,52 +280,78 @@ const MapScreen = ({ navigation }) => {
             100% { transform: scale(3); opacity: 0; }
           }
 
-          /* High-End Photo-Pin Design */
+          /* Modern Event Marker */
+          .custom-leaflet-marker {
+            background: transparent;
+            border: none;
+          }
+
           .event-pin {
-            display: flex; flex-direction: column; align-items: center;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-            animation: float-pin 3s ease-in-out infinite;
+            position: relative;
+            width: 58px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: float-pin 3.2s ease-in-out infinite;
+            transform-origin: center bottom;
           }
           
           @keyframes float-pin {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+            50% { transform: translateY(-5px); }
           }
 
-          .pin-head {
-            width: 42px; height: 42px;
-            border-radius: 50% 50% 50% 5px;
-            background: white;
-            padding: 3px;
-            display: flex; align-items: center; justify-content: center;
-            transform: rotate(-45deg);
-            border: 1px solid rgba(255,255,255,0.8);
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+          .event-pin-head {
+            position: relative;
+            width: 58px;
+            height: 58px;
+            padding: 4px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.96);
+            box-shadow:
+              0 14px 24px rgba(15, 23, 42, 0.22),
+              0 6px 10px rgba(15, 23, 42, 0.12);
           }
-          
-          .pin-image {
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            background-size: cover;
-            background-position: center;
-            background-color: ${theme.colors.secondary};
-            transform: rotate(45deg);
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 18px; font-weight: bold;
+
+          .event-pin-media {
+            position: relative;
+            width: 100%;
+             height: 100%;
+            border-radius: 14px;
             overflow: hidden;
           }
 
-          .pin-image img {
-            width: 100%; height: 100%; object-fit: cover;
+          .event-pin-photo {
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: block;
           }
-          
-          .pin-tail {
-            width: 0; height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 10px solid white;
-            margin-top: -10px;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+
+          .event-pin-fallback {
+            position: relative;
+            z-index: 1;
+          }
+
+          .event-pin-stem {
+            width: 16px;
+            height: 18px;
+            margin-top: -2px;
+            background: rgba(255,255,255,0.96);
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            filter: drop-shadow(0 5px 6px rgba(15, 23, 42, 0.18));
+          }
+
+          .event-pin-shadow {
+            width: 24px;
+            height: 8px;
+            margin-top: 2px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.2);
+            filter: blur(3px);
+            opacity: 0.45;
           }
 
           /* Debug Counter Overlay */
@@ -352,19 +404,23 @@ const MapScreen = ({ navigation }) => {
                   return;
                 }
 
-                var imgHtml = ev.images && ev.images[0] ? '<img src="' + ev.images[0] + '" onerror="this.style.display=\\'none\\'" />' : '<span>' + (ev.name ? ev.name.charAt(0) : 'E') + '</span>';
+                var badgeText = (ev.name ? ev.name.charAt(0) : 'E').toUpperCase();
+                var mediaHtml = ev.images && ev.images[0]
+                  ? '<div class="event-pin-photo" style="background-image: url(&quot;' + ev.images[0] + '&quot;);"></div>'
+                  : '<span class="event-pin-fallback">' + badgeText + '</span>';
                 
                 var pinHtml = '<div class="event-pin">' +
-                                '<div class="pin-head">' +
-                                  '<div class="pin-image">' + imgHtml + '</div>' +
+                                '<div class="event-pin-head">' +
+                                  '<div class="event-pin-media">' + mediaHtml + '</div>' +
                                 '</div>' +
-                                '<div class="pin-tail"></div>' +
+                                '<div class="event-pin-stem"></div>' +
+                                '<div class="event-pin-shadow"></div>' +
                               '</div>';
 
                 var pinIcon = L.divIcon({
                   className: 'custom-leaflet-marker',
                   html: pinHtml,
-                  iconSize: [44, 44], iconAnchor: [22, 54]
+                  iconSize: [58, 84], iconAnchor: [29, 82]
                 });
                 
                 var marker = L.marker([lat, lng], { icon: pinIcon })
@@ -418,14 +474,25 @@ const MapScreen = ({ navigation }) => {
   `;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header elevated style={{ backgroundColor: theme.colors.surface }}>
-        <Appbar.Content title="EventSpot" titleStyle={{ fontWeight: 'bold', color: theme.colors.primary }} />
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.avatarContainer}>
+    <View
+      style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      <Appbar.Header elevated style={{backgroundColor: theme.colors.surface}}>
+        <Appbar.Content
+          title="EventSpot"
+          titleStyle={{fontWeight: 'bold', color: theme.colors.primary}}
+        />
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.avatarContainer}>
           {user?.photoURL ? (
-            <Avatar.Image size={36} source={{ uri: user.photoURL }} />
+            <Avatar.Image size={36} source={{uri: user.photoURL}} />
           ) : (
-            <Avatar.Text size={36} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
+            <Avatar.Text
+              size={36}
+              label={getInitials()}
+              style={{backgroundColor: theme.colors.primary}}
+              color={theme.colors.onPrimary}
+            />
           )}
           <View style={styles.onlineIndicator} />
         </TouchableOpacity>
@@ -437,7 +504,11 @@ const MapScreen = ({ navigation }) => {
           onChangeText={setSearchQuery}
           value={searchQuery}
           onSubmitEditing={() => handleSearch(searchQuery)}
-          onClearIconPress={() => { setSearchQuery(''); setSearchResults([]); setShowResults(false); }}
+          onClearIconPress={() => {
+            setSearchQuery('');
+            setSearchResults([]);
+            setShowResults(false);
+          }}
           loading={searchLoading}
           style={styles.searchBar}
         />
@@ -460,32 +531,54 @@ const MapScreen = ({ navigation }) => {
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator animating={true} color={theme.colors.primary} size="large" />
-            <Text style={{ marginTop: 10 }}>Mapping your world...</Text>
+            <ActivityIndicator
+              animating={true}
+              color={theme.colors.primary}
+              size="large"
+            />
+            <Text style={{marginTop: 10}}>Mapping your world...</Text>
           </View>
         ) : errorMsg ? (
           <View style={styles.centerBox}>
-             <Text variant="titleMedium" style={{ color: theme.colors.error, textAlign: 'center', padding: 20 }}>{errorMsg}</Text>
-             <FAB icon="refresh" style={{ marginTop: 20 }} onPress={loadInitialData} label="Retry" />
+            <Text
+              variant="titleMedium"
+              style={{
+                color: theme.colors.error,
+                textAlign: 'center',
+                padding: 20,
+              }}>
+              {errorMsg}
+            </Text>
+            <FAB
+              icon="refresh"
+              style={{marginTop: 20}}
+              onPress={loadInitialData}
+              label="Retry"
+            />
           </View>
         ) : location ? (
           <>
             <WebView
               ref={webViewRef}
               originWhitelist={['*']}
-              source={{ html: mapHtml }}
+              source={{html: mapHtml}}
               style={styles.map}
               javaScriptEnabled={true}
-              onMessage={(event) => {
+              onMessage={event => {
                 const data = JSON.parse(event.nativeEvent.data);
                 if (data.type === 'LOG') {
-                  console.log("Leaflet Log:", data.msg);
+                  console.log('Leaflet Log:', data.msg);
                 } else if (data.type === 'READY') {
-                  console.log("Leaflet is ready, pushing initial events:", events.length);
-                  webViewRef.current?.postMessage(JSON.stringify({
-                    type: 'SET_EVENTS',
-                    events: events
-                  }));
+                  console.log(
+                    'Leaflet is ready, pushing initial events:',
+                    events.length,
+                  );
+                  webViewRef.current?.postMessage(
+                    JSON.stringify({
+                      type: 'SET_EVENTS',
+                      events: events,
+                    }),
+                  );
                 } else if (data.type === 'EVENT_CLICK') {
                   const ev = events.find(e => e.id === data.id);
                   if (ev) {
@@ -497,18 +590,26 @@ const MapScreen = ({ navigation }) => {
                 }
               }}
             />
-            
+
             <Portal>
               <FAB.Group
                 open={fabOpen}
                 visible={true}
                 icon={fabOpen ? 'close' : 'plus'}
                 actions={[
-                  { icon: 'calendar-plus', label: 'Add Event', onPress: openCreateEventModal },
-                  { icon: 'crosshairs-gps', label: 'Recenter', onPress: recenterMap },
+                  {
+                    icon: 'calendar-plus',
+                    label: 'Add Event',
+                    onPress: openCreateEventModal,
+                  },
+                  {
+                    icon: 'crosshairs-gps',
+                    label: 'Recenter',
+                    onPress: recenterMap,
+                  },
                 ]}
-                onStateChange={({ open }) => setFabOpen(open)}
-                fabStyle={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                onStateChange={({open}) => setFabOpen(open)}
+                fabStyle={[styles.fab, {backgroundColor: theme.colors.primary}]}
                 color={theme.colors.onPrimary}
                 backdropColor="transparent"
               />
@@ -537,16 +638,37 @@ const MapScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  searchContainer: { position: 'absolute', top: 90, left: 16, right: 16, zIndex: 100 },
-  searchBar: { elevation: 4 },
-  resultsCard: { marginTop: 4, maxHeight: 250 },
-  content: { flex: 1, position: 'relative' },
-  centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  map: { flex: 1 },
-  fab: { borderRadius: 28 },
-  avatarContainer: { marginRight: 16, position: 'relative', justifyContent: 'center', alignItems: 'center' },
-  onlineIndicator: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#4CAF50', borderWidth: 2, borderColor: 'white' }
+  container: {flex: 1},
+  searchContainer: {
+    position: 'absolute',
+    top: 90,
+    left: 16,
+    right: 16,
+    zIndex: 100,
+  },
+  searchBar: {elevation: 4},
+  resultsCard: {marginTop: 4, maxHeight: 250},
+  content: {flex: 1, position: 'relative'},
+  centerBox: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+  map: {flex: 1},
+  fab: {borderRadius: 28},
+  avatarContainer: {
+    marginRight: 16,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
 });
 
 export default MapScreen;
