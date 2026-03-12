@@ -1,4 +1,6 @@
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   addDoc,
   deleteDoc,
@@ -130,6 +132,20 @@ export const updateEvent = async (eventId, eventData) => {
     return { id: eventId, ...eventDoc };
   } catch (error) {
     console.error('Error updating event:', error);
+    throw error;
+  }
+};
+
+export const setEventInterest = async (eventId, interested) => {
+  try {
+    const user = getAuthenticatedUser();
+
+    await updateDoc(doc(db, 'events', eventId), {
+      attendees: interested ? arrayUnion(user.uid) : arrayRemove(user.uid),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error updating event interest:', error);
     throw error;
   }
 };

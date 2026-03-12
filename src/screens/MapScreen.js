@@ -28,6 +28,7 @@ import EventDetailModal from '../components/EventDetailModal';
 import {
   fetchEvents,
   saveEvent,
+  setEventInterest,
   updateEvent,
   deleteEvent,
   subscribeToEvents,
@@ -85,6 +86,7 @@ const MapScreen = ({navigation}) => {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [interestLoading, setInterestLoading] = useState(false);
 
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,6 +141,17 @@ const MapScreen = ({navigation}) => {
       events: filterEvents(events, eventFilterQuery, eventFilterCategory),
     });
   }, [events, eventFilterCategory, eventFilterQuery]);
+
+  useEffect(() => {
+    if (!selectedEvent?.id) {
+      return;
+    }
+
+    const updatedSelectedEvent = events.find(event => event.id === selectedEvent.id);
+    if (updatedSelectedEvent) {
+      setSelectedEvent(updatedSelectedEvent);
+    }
+  }, [events, selectedEvent?.id]);
 
   const postMapMessage = payload => {
     webViewRef.current?.postMessage(JSON.stringify(payload));
@@ -372,6 +385,18 @@ const MapScreen = ({navigation}) => {
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to delete event.');
+    }
+  };
+
+  const handleToggleInterest = async (event, interested) => {
+    try {
+      setInterestLoading(true);
+      await setEventInterest(event.id, interested);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to update your interest.');
+    } finally {
+      setInterestLoading(false);
     }
   };
 
@@ -903,6 +928,8 @@ const MapScreen = ({navigation}) => {
               currentUserId={user?.uid}
               onEdit={handleEditEvent}
               onDelete={handleDeleteEvent}
+              onToggleInterest={handleToggleInterest}
+              interestLoading={interestLoading}
             />
           </>
         ) : null}

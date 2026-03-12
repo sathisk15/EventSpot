@@ -53,7 +53,18 @@ const getDurationLabel = (event) => {
   return `${hours}h ${minutes}m`;
 };
 
-const EventDetailModal = ({ visible, onDismiss, event, currentUserId, onEdit, onDelete }) => {
+const getInterestCount = event => Array.isArray(event.attendees) ? event.attendees.length : 0;
+
+const EventDetailModal = ({
+  visible,
+  onDismiss,
+  event,
+  currentUserId,
+  onEdit,
+  onDelete,
+  onToggleInterest,
+  interestLoading,
+}) => {
   const theme = useTheme();
 
   if (!event) return null;
@@ -62,6 +73,12 @@ const EventDetailModal = ({ visible, onDismiss, event, currentUserId, onEdit, on
   const eventEndDate = getEventEndDate(event);
   const durationLabel = getDurationLabel(event);
   const isOwner = Boolean(currentUserId && event.createdBy === currentUserId);
+  const interestCount = getInterestCount(event);
+  const isInterested = Boolean(
+    currentUserId &&
+      Array.isArray(event.attendees) &&
+      event.attendees.includes(currentUserId),
+  );
 
   return (
     <Portal>
@@ -112,6 +129,11 @@ const EventDetailModal = ({ visible, onDismiss, event, currentUserId, onEdit, on
                   {durationLabel}
                 </Chip>
               ) : null}
+              {!isOwner ? (
+                <Chip icon="heart" style={styles.chip}>
+                  {interestCount} interested
+                </Chip>
+              ) : null}
             </View>
 
             <Divider style={styles.divider} />
@@ -146,8 +168,13 @@ const EventDetailModal = ({ visible, onDismiss, event, currentUserId, onEdit, on
               </Button>
             </View>
           ) : (
-            <Button mode="contained" style={styles.joinButton} onPress={() => {}}>
-              I'm Interested
+            <Button
+              mode={isInterested ? 'outlined' : 'contained'}
+              style={styles.joinButton}
+              loading={interestLoading}
+              disabled={interestLoading}
+              onPress={() => onToggleInterest?.(event, !isInterested)}>
+              {isInterested ? 'Interested' : "I'm Interested"}
             </Button>
           )}
         </View>

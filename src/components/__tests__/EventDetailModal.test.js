@@ -6,6 +6,7 @@ import EventDetailModal from '../EventDetailModal';
 const mockOnDismiss = jest.fn();
 const mockOnEdit = jest.fn();
 const mockOnDelete = jest.fn();
+const mockOnToggleInterest = jest.fn();
 
 const mockEvent = {
   id: '1',
@@ -18,6 +19,7 @@ const mockEvent = {
   durationMinutes: 150,
   creatorEmail: 'test@example.com',
   createdBy: 'owner-user',
+  attendees: ['viewer-user', 'friend-user'],
   images: ['https://example.com/image1.jpg'],
   location: {
     address: 'Central Park, NY',
@@ -38,6 +40,7 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
         currentUserId="viewer-user"
         event={mockEvent}
       />
@@ -60,6 +63,7 @@ describe('EventDetailModal', () => {
       )
     ).toBeTruthy();
     expect(getByText('2h 30m')).toBeTruthy();
+    expect(getByText('2 interested')).toBeTruthy();
   });
 
   it('calls onDismiss when close action is pressed', () => {
@@ -69,6 +73,7 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
         currentUserId="viewer-user"
         event={mockEvent}
       />
@@ -86,6 +91,7 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
         currentUserId="viewer-user"
         event={null}
       />
@@ -107,7 +113,8 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
-        currentUserId="viewer-user"
+        onToggleInterest={mockOnToggleInterest}
+        currentUserId="new-viewer"
         event={eventWithoutAddress}
       />
     );
@@ -130,6 +137,7 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
         currentUserId="viewer-user"
         event={legacyEvent}
       />
@@ -151,6 +159,7 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
         currentUserId="owner-user"
         event={mockEvent}
       />
@@ -159,6 +168,7 @@ describe('EventDetailModal', () => {
     expect(getByText('Edit Event')).toBeTruthy();
     expect(getByText('Delete Event')).toBeTruthy();
     expect(queryByText("I'm Interested")).toBeNull();
+    expect(queryByText('2 interested')).toBeNull();
   });
 
   it('calls edit and delete handlers for the owner', () => {
@@ -168,6 +178,7 @@ describe('EventDetailModal', () => {
         onDismiss={mockOnDismiss}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
         currentUserId="owner-user"
         event={mockEvent}
       />
@@ -178,5 +189,44 @@ describe('EventDetailModal', () => {
 
     expect(mockOnEdit).toHaveBeenCalledWith(mockEvent);
     expect(mockOnDelete).toHaveBeenCalledWith(mockEvent);
+  });
+
+  it('toggles interest for a viewer and reflects the interested state', () => {
+    const { getByText } = render(
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
+        currentUserId="viewer-user"
+        event={mockEvent}
+      />
+    );
+
+    fireEvent.press(getByText('Interested'));
+
+    expect(mockOnToggleInterest).toHaveBeenCalledWith(mockEvent, false);
+  });
+
+  it('lets a new viewer show interest', () => {
+    const { getByText } = render(
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        onToggleInterest={mockOnToggleInterest}
+        currentUserId="new-viewer"
+        event={{...mockEvent, attendees: ['friend-user']}}
+      />
+    );
+
+    fireEvent.press(getByText("I'm Interested"));
+
+    expect(mockOnToggleInterest).toHaveBeenCalledWith(
+      {...mockEvent, attendees: ['friend-user']},
+      true,
+    );
   });
 });

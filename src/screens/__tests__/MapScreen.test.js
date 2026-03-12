@@ -6,6 +6,7 @@ import * as Location from 'expo-location';
 import {
   fetchEvents,
   saveEvent,
+  setEventInterest,
   updateEvent,
   deleteEvent,
   subscribeToEvents,
@@ -17,6 +18,7 @@ import { Alert } from 'react-native';
 jest.mock('../../services/eventService', () => ({
   fetchEvents: jest.fn(),
   saveEvent: jest.fn(),
+  setEventInterest: jest.fn(),
   updateEvent: jest.fn(),
   deleteEvent: jest.fn(),
   subscribeToEvents: jest.fn(),
@@ -38,14 +40,18 @@ jest.mock('../../components/CreateEventModal', () => {
 
 jest.mock('../../components/EventDetailModal', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
-  return ({ visible, onDismiss, event, currentUserId, onEdit, onDelete }) => visible ? (
+  return ({ visible, onDismiss, event, currentUserId, onEdit, onDelete, onToggleInterest, interestLoading }) => visible ? (
     <View testID="event-detail-modal-mock">
       <Text>Event Details Mock</Text>
       <Text>{event?.name}</Text>
       <Text>{event?.createdBy === currentUserId ? 'Owner View' : 'Viewer View'}</Text>
+      <Text>{Array.isArray(event?.attendees) ? `${event.attendees.length} interested` : '0 interested'}</Text>
+      <Text>{interestLoading ? 'Interest Loading' : 'Interest Idle'}</Text>
       <TouchableOpacity onPress={() => onDismiss()}><Text>close-modal</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => onEdit?.(event)}><Text>edit-event</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => onDelete?.(event)}><Text>delete-event</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => onToggleInterest?.(event, true)}><Text>toggle-interest-on</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => onToggleInterest?.(event, false)}><Text>toggle-interest-off</Text></TouchableOpacity>
     </View>
   ) : null;
 });
@@ -107,6 +113,7 @@ describe('MapScreen', () => {
     location: { latitude: 51, longitude: 17, address: 'Concert Hall' },
     date: new Date().toISOString(),
     category: 'Music',
+    attendees: ['friend-user'],
     createdBy: 'test-user-id',
     creatorEmail: 'test@example.com',
   }];
@@ -133,6 +140,7 @@ describe('MapScreen', () => {
     });
     fetchEvents.mockResolvedValue(mockEvents);
     saveEvent.mockResolvedValue({});
+    setEventInterest.mockResolvedValue({});
     updateEvent.mockResolvedValue({});
     deleteEvent.mockResolvedValue();
     subscribeToEvents.mockImplementation(onEvents => {
@@ -306,6 +314,7 @@ describe('MapScreen', () => {
     await waitFor(() => {
       expect(getByText('Event Details Mock')).toBeTruthy();
       expect(getByText('Cool Concert')).toBeTruthy();
+      expect(getByText('1 interested')).toBeTruthy();
     });
   });
 
@@ -726,6 +735,47 @@ describe('MapScreen', () => {
     await waitFor(() => {
       expect(deleteEvent).toHaveBeenCalledWith('ev1', 'test-user-id');
       expect(Alert.alert).toHaveBeenCalledWith('Success', 'Event deleted successfully!');
+    });
+  });
+
+  it('toggles interest for events owned by other users', async () => {
+    const viewerEvents = [
+      {
+        id: 'viewer-event',
+        name: 'Community Meetup',
+        location: { latitude: 51, longitude: 17, address: 'Community Hall' },
+        date: new Date().toISOString(),
+        attendees: [],
+        createdBy: 'other-user',
+        creatorEmail: 'other@example.com',
+      },
+    ];
+
+    fetchEvents.mockResolvedValue(viewerEvents);
+    subscribeToEvents.mockImplementationOnce(onEvents => {
+      eventsSubscriptionHandler = onEvents;
+      onEvents(viewerEvents);
+      return jest.fn();
+    });
+
+    const { getByTestId, getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent(getByTestId('webview-mock'), 'onMessage', JSON.stringify({
+      type: 'EVENT_CLICK',
+      id: 'viewer-event'
+    }));
+
+    await waitFor(() => {
+      expect(getByText('Viewer View')).toBeTruthy();
+      expect(getByText('0 interested')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('toggle-interest-on'));
+
+    await waitFor(() => {
+      expect(setEventInterest).toHaveBeenCalledWith('viewer-event', true);
     });
   });
 

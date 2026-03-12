@@ -1,4 +1,14 @@
-import { addDoc, deleteDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import {
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  deleteDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import {
@@ -7,6 +17,7 @@ import {
   updateEvent,
   deleteEvent,
   fetchUserEvents,
+  setEventInterest,
   subscribeToEvents,
   subscribeToUserEvents,
 } from '../eventService';
@@ -20,6 +31,8 @@ jest.mock('expo-file-system/legacy', () => ({
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   addDoc: jest.fn(),
+  arrayRemove: jest.fn((value) => ({ op: 'remove', value })),
+  arrayUnion: jest.fn((value) => ({ op: 'union', value })),
   deleteDoc: jest.fn(),
   doc: jest.fn(),
   getDocs: jest.fn(),
@@ -357,6 +370,28 @@ describe('eventService', () => {
       await expect(deleteEvent('event-123', 'other-user')).rejects.toThrow(
         'User not authorized to modify this event'
       );
+    });
+  });
+
+  describe('setEventInterest', () => {
+    it('adds the current user to attendees when interested is true', async () => {
+      await setEventInterest('event-123', true);
+
+      expect(arrayUnion).toHaveBeenCalledWith('test-uid');
+      expect(updateDoc).toHaveBeenCalledWith(undefined, {
+        attendees: { op: 'union', value: 'test-uid' },
+        updatedAt: 'mock-timestamp',
+      });
+    });
+
+    it('removes the current user from attendees when interested is false', async () => {
+      await setEventInterest('event-123', false);
+
+      expect(arrayRemove).toHaveBeenCalledWith('test-uid');
+      expect(updateDoc).toHaveBeenCalledWith(undefined, {
+        attendees: { op: 'remove', value: 'test-uid' },
+        updatedAt: 'mock-timestamp',
+      });
     });
   });
 });
