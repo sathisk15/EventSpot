@@ -2,6 +2,7 @@ import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
 import CreateEventModal from '../CreateEventModal';
 
@@ -22,6 +23,13 @@ const defaultProps = {
 describe('CreateEventModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    Location.getCurrentPositionAsync.mockResolvedValue({
+      coords: { latitude: 51.1079, longitude: 17.0385 },
+    });
+    Location.reverseGeocodeAsync.mockResolvedValue([
+      { city: 'Wroclaw', region: 'Lower Silesian', country: 'Poland' },
+    ]);
   });
 
   it('renders the event form with schedule controls', () => {
@@ -229,6 +237,55 @@ describe('CreateEventModal', () => {
     const { getByText } = render(<CreateEventModal {...defaultProps} />);
 
     expect(getByText('Wroclaw, Poland')).toBeTruthy();
+  });
+
+  it('uses the current location when the location icon is pressed', async () => {
+    const { getByText, getByPlaceholderText } = render(<CreateEventModal {...defaultProps} initialLocation={null} />);
+
+    fireEvent.press(getByText('crosshairs-gps'));
+
+    await waitFor(() => {
+      expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
+      expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      expect(Location.reverseGeocodeAsync).toHaveBeenCalledWith({
+        latitude: 51.1079,
+        longitude: 17.0385,
+      });
+      expect(getByPlaceholderText('Search location...').props.value).toBe('Wroclaw, Lower Silesian, Poland');
+      expect(getByText('Wroclaw, Lower Silesian, Poland')).toBeTruthy();
+    });
+  });
+
+  it('shows an alert when current location permission is denied', async () => {
+    Location.requestForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'denied' });
+
+    const { getByText } = render(<CreateEventModal {...defaultProps} initialLocation={null} />);
+
+    fireEvent.press(getByText('crosshairs-gps'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Location Permission',
+        'Please allow location access to use your current location.'
+      );
+    });
+  });
+
+  it('shows an alert when current location lookup fails', async () => {
+    Location.getCurrentPositionAsync.mockRejectedValueOnce(new Error('GPS failed'));
+
+    const { getByText } = render(<CreateEventModal {...defaultProps} initialLocation={null} />);
+
+    fireEvent.press(getByText('crosshairs-gps'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Location Error',
+        'Could not get your current location.'
+      );
+    });
   });
 
   it('does not render a selected location chip when no initial location is provided', () => {

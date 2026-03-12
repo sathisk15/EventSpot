@@ -22,6 +22,7 @@ import {
   Chip
 } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const DEFAULT_EVENT_DURATION_MINUTES = 60;
@@ -71,6 +72,31 @@ const formatDuration = (minutes) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+const formatCoordinateFallback = (latitude, longitude) =>
+  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+
+const formatAddressFromParts = (parts, latitude, longitude) => {
+  if (!parts) {
+    return formatCoordinateFallback(latitude, longitude);
+  }
+
+  const candidates = [
+    parts.name,
+    parts.street,
+    parts.district,
+    parts.city,
+    parts.subregion,
+    parts.region,
+    parts.country,
+  ].filter(Boolean);
+
+  if (candidates.length === 0) {
+    return formatCoordinateFallback(latitude, longitude);
+  }
+
+  return [...new Set(candidates)].join(', ');
+};
+
 const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
   const theme = useTheme();
   const defaultSchedule = React.useMemo(() => createDefaultSchedule(), []);
@@ -90,6 +116,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
 
   // Sync with initialLocation when modal opens
   React.useEffect(() => {
@@ -129,6 +156,42 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
     setLocalLocation(newLoc);
     setSearchQuery(item.display_name);
     setShowResults(false);
+  };
+
+  const handleUseCurrentLocation = async () => {
+    setCurrentLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location Permission', 'Please allow location access to use your current location.');
+        return;
+      }
+
+      const currentPosition = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const latitude = currentPosition.coords.latitude;
+      const longitude = currentPosition.coords.longitude;
+
+      const [addressParts] = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      const address = formatAddressFromParts(addressParts, latitude, longitude);
+      const currentLoc = { latitude, longitude, address };
+
+      setLocalLocation(currentLoc);
+      setSearchQuery(address);
+      setSearchResults([]);
+      setShowResults(false);
+    } catch (error) {
+      console.error('Current location lookup failed:', error);
+      Alert.alert('Location Error', 'Could not get your current location.');
+    } finally {
+      setCurrentLocationLoading(false);
+    }
   };
 
   const handlePickImage = async () => {
@@ -237,25 +300,35 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
         <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
           <View style={styles.searchSection}>
             <Text variant="labelLarge" style={styles.sectionTitle}>Event Location</Text>
-            <Searchbar
-              placeholder="Search location..."
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                if (!text) {
+            <View style={styles.locationInputRow}>
+              <Searchbar
+                placeholder="Search location..."
+                onChangeText={(text) => {
+                  setSearchQuery(text);
+                  if (!text) {
+                    setSearchResults([]);
+                    setShowResults(false);
+                  }
+                }}
+                value={searchQuery}
+                onSubmitEditing={() => handleLocationSearch(searchQuery)}
+                onClearIconPress={() => {
+                  setSearchQuery('');
                   setSearchResults([]);
                   setShowResults(false);
-                }
-              }}
-              value={searchQuery}
-              onSubmitEditing={() => handleLocationSearch(searchQuery)}
-              onClearIconPress={() => {
-                setSearchQuery('');
-                setSearchResults([]);
-                setShowResults(false);
-              }}
-              loading={searchLoading}
-              style={styles.searchBar}
-            />
+                }}
+                loading={searchLoading}
+                style={[styles.searchBar, styles.searchBarInput]}
+              />
+              <IconButton
+                icon="crosshairs-gps"
+                mode="contained-tonal"
+                size={24}
+                disabled={currentLocationLoading}
+                onPress={handleUseCurrentLocation}
+                accessibilityLabel="Use current location"
+              />
+            </View>
             {showResults && searchResults.length > 0 && (
               <Card style={styles.resultsCard}>
                 <List.Section>
@@ -385,12 +458,19 @@ const styles = StyleSheet.create({
   searchSection: {
     marginBottom: 20,
   },
+  locationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   dateTimeSection: {
     marginBottom: 16,
   },
   searchBar: {
     elevation: 2,
     backgroundColor: 'white',
+  },
+  searchBarInput: {
+    flex: 1,
   },
   resultsCard: {
     marginTop: 4,
