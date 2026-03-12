@@ -53,7 +53,7 @@ const getDurationLabel = (event) => {
   return `${hours}h ${minutes}m`;
 };
 
-const EventDetailModal = ({ visible, onDismiss, event }) => {
+const EventDetailModal = ({ visible, onDismiss, event, currentUserId, onEdit, onDelete }) => {
   const theme = useTheme();
 
   if (!event) return null;
@@ -61,6 +61,7 @@ const EventDetailModal = ({ visible, onDismiss, event }) => {
   const eventStartDate = getEventStartDate(event);
   const eventEndDate = getEventEndDate(event);
   const durationLabel = getDurationLabel(event);
+  const isOwner = Boolean(currentUserId && event.createdBy === currentUserId);
 
   return (
     <Portal>
@@ -125,9 +126,25 @@ const EventDetailModal = ({ visible, onDismiss, event }) => {
         </ScrollView>
         
         <View style={styles.footer}>
-          <Button mode="contained" style={styles.joinButton} onPress={() => {}}>
-            I'm Interested
-          </Button>
+          {isOwner ? (
+            <View style={styles.ownerActions}>
+              <Button mode="outlined" style={styles.ownerButton} onPress={() => onEdit?.(event)}>
+                Edit Event
+              </Button>
+              <Button
+                mode="contained"
+                buttonColor={theme.colors.error}
+                style={styles.ownerButton}
+                onPress={() => onDelete?.(event)}
+              >
+                Delete Event
+              </Button>
+            </View>
+          ) : (
+            <Button mode="contained" style={styles.joinButton} onPress={() => {}}>
+              I'm Interested
+            </Button>
+          )}
         </View>
       </Modal>
     </Portal>
@@ -193,6 +210,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#eee',
+  },
+  ownerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  ownerButton: {
+    flex: 1,
+    borderRadius: 8,
   },
   joinButton: {
     borderRadius: 8,

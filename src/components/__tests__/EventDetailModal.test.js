@@ -4,6 +4,8 @@ import { render, fireEvent } from '@testing-library/react-native';
 import EventDetailModal from '../EventDetailModal';
 
 const mockOnDismiss = jest.fn();
+const mockOnEdit = jest.fn();
+const mockOnDelete = jest.fn();
 
 const mockEvent = {
   id: '1',
@@ -14,6 +16,7 @@ const mockEvent = {
   endDate: '2026-07-15T21:30:00.000Z',
   durationMinutes: 150,
   creatorEmail: 'test@example.com',
+  createdBy: 'owner-user',
   images: ['https://example.com/image1.jpg'],
   location: {
     address: 'Central Park, NY',
@@ -29,7 +32,14 @@ describe('EventDetailModal', () => {
 
   it('renders correctly with event data and schedule', () => {
     const { getByText } = render(
-      <EventDetailModal visible={true} onDismiss={mockOnDismiss} event={mockEvent} />
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="viewer-user"
+        event={mockEvent}
+      />
     );
 
     expect(getByText('Event Details')).toBeTruthy();
@@ -52,7 +62,14 @@ describe('EventDetailModal', () => {
 
   it('calls onDismiss when close action is pressed', () => {
     const { getByText } = render(
-      <EventDetailModal visible={true} onDismiss={mockOnDismiss} event={mockEvent} />
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="viewer-user"
+        event={mockEvent}
+      />
     );
 
     fireEvent.press(getByText('close'));
@@ -62,7 +79,14 @@ describe('EventDetailModal', () => {
 
   it('returns null if no event is provided', () => {
     const { queryByText } = render(
-      <EventDetailModal visible={true} onDismiss={mockOnDismiss} event={null} />
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="viewer-user"
+        event={null}
+      />
     );
 
     expect(queryByText('Event Details')).toBeNull();
@@ -76,7 +100,14 @@ describe('EventDetailModal', () => {
     };
 
     const { getByText } = render(
-      <EventDetailModal visible={true} onDismiss={mockOnDismiss} event={eventWithoutAddress} />
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="viewer-user"
+        event={eventWithoutAddress}
+      />
     );
 
     expect(getByText('View on Map')).toBeTruthy();
@@ -92,7 +123,14 @@ describe('EventDetailModal', () => {
     };
 
     const { getByText, queryByText } = render(
-      <EventDetailModal visible={true} onDismiss={mockOnDismiss} event={legacyEvent} />
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="viewer-user"
+        event={legacyEvent}
+      />
     );
 
     expect(
@@ -102,5 +140,41 @@ describe('EventDetailModal', () => {
     ).toBeTruthy();
     expect(queryByText(/To /)).toBeNull();
     expect(queryByText('2h 30m')).toBeNull();
+  });
+
+  it('shows owner-only edit and delete actions', () => {
+    const { getByText, queryByText } = render(
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="owner-user"
+        event={mockEvent}
+      />
+    );
+
+    expect(getByText('Edit Event')).toBeTruthy();
+    expect(getByText('Delete Event')).toBeTruthy();
+    expect(queryByText("I'm Interested")).toBeNull();
+  });
+
+  it('calls edit and delete handlers for the owner', () => {
+    const { getByText } = render(
+      <EventDetailModal
+        visible={true}
+        onDismiss={mockOnDismiss}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        currentUserId="owner-user"
+        event={mockEvent}
+      />
+    );
+
+    fireEvent.press(getByText('Edit Event'));
+    fireEvent.press(getByText('Delete Event'));
+
+    expect(mockOnEdit).toHaveBeenCalledWith(mockEvent);
+    expect(mockOnDelete).toHaveBeenCalledWith(mockEvent);
   });
 });

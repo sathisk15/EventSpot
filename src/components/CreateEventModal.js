@@ -97,7 +97,27 @@ const formatAddressFromParts = (parts, latitude, longitude) => {
   return [...new Set(candidates)].join(', ');
 };
 
-const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
+const getScheduleFromEvent = (event) => {
+  if (!event) {
+    return createDefaultSchedule();
+  }
+
+  const start = new Date(event.startDate || event.date || new Date());
+  start.setSeconds(0, 0);
+
+  let end;
+  if (event.endDate) {
+    end = new Date(event.endDate);
+  } else if (typeof event.durationMinutes === 'number') {
+    end = addMinutes(start, event.durationMinutes);
+  } else {
+    end = addMinutes(start, DEFAULT_EVENT_DURATION_MINUTES);
+  }
+
+  return { start, end };
+};
+
+const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initialEvent = null }) => {
   const theme = useTheme();
   const defaultSchedule = React.useMemo(() => createDefaultSchedule(), []);
   const [eventName, setEventName] = useState('');
@@ -118,13 +138,24 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
   const [showResults, setShowResults] = useState(false);
   const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
 
-  // Sync with initialLocation when modal opens
+  // Sync modal state when it opens for create or edit.
   React.useEffect(() => {
     if (visible) {
-      setLocalLocation(initialLocation);
-      setSearchQuery(initialLocation?.address || '');
+      const nextSchedule = initialEvent ? getScheduleFromEvent(initialEvent) : createDefaultSchedule();
+      const nextLocation = initialEvent?.location || initialLocation || null;
+
+      setEventName(initialEvent?.name || '');
+      setDescription(initialEvent?.description || '');
+      setStartDate(nextSchedule.start);
+      setEndDate(nextSchedule.end);
+      setImages((initialEvent?.images || []).map(uri => ({ uri })));
+      setLocalLocation(nextLocation);
+      setSearchQuery(nextLocation?.address || '');
+      setSearchResults([]);
+      setShowResults(false);
+      setActivePicker(null);
     }
-  }, [visible, initialLocation]);
+  }, [visible, initialLocation, initialEvent]);
 
   const durationMinutes = getDurationMinutes(startDate, endDate);
 
@@ -291,9 +322,9 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation }) => {
       <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
         <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
           <Appbar.Action icon="close" onPress={onDismiss} />
-          <Appbar.Content title="Create Event" />
+          <Appbar.Content title={initialEvent ? 'Edit Event' : 'Create Event'} />
           <Button mode="text" onPress={handleSave} loading={loading} disabled={loading}>
-            Save
+            {initialEvent ? 'Update' : 'Save'}
           </Button>
         </Appbar.Header>
 

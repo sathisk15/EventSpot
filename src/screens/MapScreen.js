@@ -24,7 +24,7 @@ import * as Location from 'expo-location';
 import {AuthContext} from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
-import {saveEvent, fetchEvents} from '../services/eventService';
+import {saveEvent, fetchEvents, updateEvent, deleteEvent} from '../services/eventService';
 
 const formatCoordinateFallback = (latitude, longitude) =>
   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
@@ -56,6 +56,7 @@ const MapScreen = ({navigation}) => {
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalInitialLocation, setModalInitialLocation] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
     loadInitialData();
@@ -225,10 +226,20 @@ const MapScreen = ({navigation}) => {
 
   const onSaveEvent = async eventData => {
     try {
-      await saveEvent(eventData);
-      Alert.alert('Success', 'Event created successfully!');
+      if (editingEvent) {
+        await updateEvent(editingEvent.id, {
+          ...eventData,
+          createdBy: editingEvent.createdBy,
+          creatorEmail: editingEvent.creatorEmail,
+        });
+        Alert.alert('Success', 'Event updated successfully!');
+      } else {
+        await saveEvent(eventData);
+        Alert.alert('Success', 'Event created successfully!');
+      }
       setModalVisible(false);
       setModalInitialLocation(null);
+      setEditingEvent(null);
       await refreshEvents();
     } catch (error) {
       console.error(error);
@@ -244,13 +255,36 @@ const MapScreen = ({navigation}) => {
 
   const handleMapClick = async (latitude, longitude) => {
     const resolvedLocation = await buildResolvedLocation(latitude, longitude);
+    setEditingEvent(null);
     setModalInitialLocation(resolvedLocation);
     setModalVisible(true);
   };
 
   const openCreateEventModal = () => {
+    setEditingEvent(null);
     setModalInitialLocation(null);
     setModalVisible(true);
+  };
+
+  const handleEditEvent = event => {
+    setDetailVisible(false);
+    setEditingEvent(event);
+    setModalInitialLocation(event.location || null);
+    setModalVisible(true);
+  };
+
+  const handleDeleteEvent = async event => {
+    try {
+      await deleteEvent(event.id, event.createdBy);
+      setDetailVisible(false);
+      setSelectedEvent(null);
+      setEditingEvent(null);
+      Alert.alert('Success', 'Event deleted successfully!');
+      await refreshEvents();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to delete event.');
+    }
   };
 
   // Leaflet HTML with OpenStreetMap Tiles
@@ -620,15 +654,20 @@ const MapScreen = ({navigation}) => {
               onDismiss={() => {
                 setModalVisible(false);
                 setModalInitialLocation(null);
+                setEditingEvent(null);
               }}
               onSave={onSaveEvent}
               initialLocation={modalInitialLocation}
+              initialEvent={editingEvent}
             />
 
             <EventDetailModal
               visible={detailVisible}
               onDismiss={() => setDetailVisible(false)}
               event={selectedEvent}
+              currentUserId={user?.uid}
+              onEdit={handleEditEvent}
+              onDelete={handleDeleteEvent}
             />
           </>
         ) : null}

@@ -1,7 +1,7 @@
-import { addDoc, getDocs } from 'firebase/firestore';
+import { addDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { saveEvent, fetchEvents } from '../eventService';
+import { saveEvent, fetchEvents, updateEvent, deleteEvent } from '../eventService';
 import { auth } from '../../config/firebase';
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -12,10 +12,13 @@ jest.mock('expo-file-system/legacy', () => ({
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   addDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  doc: jest.fn(),
   getDocs: jest.fn(),
   query: jest.fn(),
   orderBy: jest.fn(),
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
+  updateDoc: jest.fn(),
 }));
 
 jest.mock('../../config/firebase', () => ({
@@ -191,6 +194,76 @@ describe('eventService', () => {
 
       expect(FileSystem.uploadAsync).toHaveBeenCalledTimes(2);
       expect(result.images).toHaveLength(2);
+    });
+
+    it('keeps remote image urls unchanged when saving', async () => {
+      addDoc.mockResolvedValueOnce({ id: 'remote-image-event' });
+
+      const result = await saveEvent({
+        ...eventData,
+        images: ['https://example.com/existing.jpg'],
+      });
+
+      expect(FileSystem.uploadAsync).not.toHaveBeenCalled();
+      expect(result.images).toEqual(['https://example.com/existing.jpg']);
+    });
+  });
+
+  describe('updateEvent', () => {
+    const eventData = {
+      name: 'Updated Event',
+      description: 'Updated Description',
+      date: '2026-03-12T12:00:00.000Z',
+      startDate: '2026-03-12T12:00:00.000Z',
+      endDate: '2026-03-12T15:00:00.000Z',
+      durationMinutes: 180,
+      images: ['https://example.com/existing.jpg', 'file://new-image.jpg'],
+      location: { latitude: 1, longitude: 2, address: 'Updated Location' },
+      createdBy: 'test-uid',
+      creatorEmail: 'test@example.com',
+    };
+
+    it('updates an owned event and uploads only new local images', async () => {
+      FileSystem.uploadAsync.mockResolvedValueOnce({
+        status: 200,
+        body: JSON.stringify({ downloadTokens: 'updated-token' }),
+      });
+
+      const result = await updateEvent('event-123', eventData);
+
+      expect(FileSystem.uploadAsync).toHaveBeenCalledTimes(1);
+      expect(updateDoc).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          name: 'Updated Event',
+          images: [
+            'https://example.com/existing.jpg',
+            expect.stringContaining('token=updated-token'),
+          ],
+          updatedAt: 'mock-timestamp',
+        })
+      );
+      expect(result.id).toBe('event-123');
+    });
+
+    it('rejects updates from non-owners', async () => {
+      await expect(
+        updateEvent('event-123', { ...eventData, createdBy: 'other-user' })
+      ).rejects.toThrow('User not authorized to modify this event');
+    });
+  });
+
+  describe('deleteEvent', () => {
+    it('deletes an owned event', async () => {
+      await deleteEvent('event-123', 'test-uid');
+
+      expect(deleteDoc).toHaveBeenCalledWith(undefined);
+    });
+
+    it('rejects deletes from non-owners', async () => {
+      await expect(deleteEvent('event-123', 'other-user')).rejects.toThrow(
+        'User not authorized to modify this event'
+      );
     });
   });
 });

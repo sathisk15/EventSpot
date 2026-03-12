@@ -3,7 +3,7 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import MapScreen from '../MapScreen';
 import { AuthContext } from '../../contexts/AuthContext';
 import * as Location from 'expo-location';
-import { fetchEvents, saveEvent } from '../../services/eventService';
+import { fetchEvents, saveEvent, updateEvent, deleteEvent } from '../../services/eventService';
 import { Alert } from 'react-native';
 // Alert is mocked in jest.setup.js
 
@@ -11,14 +11,17 @@ import { Alert } from 'react-native';
 jest.mock('../../services/eventService', () => ({
   fetchEvents: jest.fn(),
   saveEvent: jest.fn(),
+  updateEvent: jest.fn(),
+  deleteEvent: jest.fn(),
 }));
 
 // Mock Modals to isolate MapScreen tests
 jest.mock('../../components/CreateEventModal', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
-  return ({ visible, onDismiss, onSave, initialLocation }) => visible ? (
+  return ({ visible, onDismiss, onSave, initialLocation, initialEvent }) => visible ? (
     <View testID="create-event-modal-mock">
-      <Text>Create Event Mock</Text>
+      <Text>{initialEvent ? 'Edit Event Mock' : 'Create Event Mock'}</Text>
+      <Text>{initialEvent?.name || 'No Initial Event'}</Text>
       <Text>{initialLocation?.address || 'No Initial Location'}</Text>
       <TouchableOpacity onPress={() => onDismiss()}><Text>close-modal</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => onSave({ name: 'New' })}><Text>save-modal</Text></TouchableOpacity>
@@ -28,11 +31,14 @@ jest.mock('../../components/CreateEventModal', () => {
 
 jest.mock('../../components/EventDetailModal', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
-  return ({ visible, onDismiss, event }) => visible ? (
+  return ({ visible, onDismiss, event, currentUserId, onEdit, onDelete }) => visible ? (
     <View testID="event-detail-modal-mock">
       <Text>Event Details Mock</Text>
       <Text>{event?.name}</Text>
+      <Text>{event?.createdBy === currentUserId ? 'Owner View' : 'Viewer View'}</Text>
       <TouchableOpacity onPress={() => onDismiss()}><Text>close-modal</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => onEdit?.(event)}><Text>edit-event</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => onDelete?.(event)}><Text>delete-event</Text></TouchableOpacity>
     </View>
   ) : null;
 });
@@ -79,7 +85,14 @@ const createFetchMock = ({ reverseAddress = 'Resolved Address', searchResults } 
   });
 
 describe('MapScreen', () => {
-  const mockEvents = [{ id: 'ev1', name: 'Cool Concert', location: { latitude: 51, longitude: 17 }, date: new Date().toISOString() }];
+  const mockEvents = [{
+    id: 'ev1',
+    name: 'Cool Concert',
+    location: { latitude: 51, longitude: 17, address: 'Concert Hall' },
+    date: new Date().toISOString(),
+    createdBy: 'test-user-id',
+    creatorEmail: 'test@example.com',
+  }];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,6 +104,9 @@ describe('MapScreen', () => {
       coords: { latitude: 51.1079, longitude: 17.0385 }
     });
     fetchEvents.mockResolvedValue(mockEvents);
+    saveEvent.mockResolvedValue({});
+    updateEvent.mockResolvedValue({});
+    deleteEvent.mockResolvedValue();
     global.fetch = createFetchMock();
   });
 
@@ -394,6 +410,81 @@ describe('MapScreen', () => {
     
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith('Success', 'Event created successfully!');
+    });
+  });
+
+  it('opens the edit flow for events owned by the current user', async () => {
+    const { getByTestId, getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent(getByTestId('webview-mock'), 'onMessage', JSON.stringify({
+      type: 'EVENT_CLICK',
+      id: 'ev1'
+    }));
+
+    await waitFor(() => {
+      expect(getByText('Owner View')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('edit-event'));
+
+    await waitFor(() => {
+      expect(getByText('Edit Event Mock')).toBeTruthy();
+      expect(getByText('Cool Concert')).toBeTruthy();
+      expect(getByText('Concert Hall')).toBeTruthy();
+    });
+  });
+
+  it('updates an owned event from the edit flow', async () => {
+    const { getByTestId, getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent(getByTestId('webview-mock'), 'onMessage', JSON.stringify({
+      type: 'EVENT_CLICK',
+      id: 'ev1'
+    }));
+
+    await waitFor(() => {
+      expect(getByText('Owner View')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('edit-event'));
+    fireEvent.press(getByText('save-modal'));
+
+    await waitFor(() => {
+      expect(updateEvent).toHaveBeenCalledWith(
+        'ev1',
+        expect.objectContaining({
+          name: 'New',
+          createdBy: 'test-user-id',
+          creatorEmail: 'test@example.com',
+        })
+      );
+      expect(Alert.alert).toHaveBeenCalledWith('Success', 'Event updated successfully!');
+    });
+  });
+
+  it('deletes an owned event from the detail modal', async () => {
+    const { getByTestId, getByText } = render(<MapScreen navigation={mockNavigation} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent(getByTestId('webview-mock'), 'onMessage', JSON.stringify({
+      type: 'EVENT_CLICK',
+      id: 'ev1'
+    }));
+
+    await waitFor(() => {
+      expect(getByText('Owner View')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('delete-event'));
+
+    await waitFor(() => {
+      expect(deleteEvent).toHaveBeenCalledWith('ev1', 'test-user-id');
+      expect(Alert.alert).toHaveBeenCalledWith('Success', 'Event deleted successfully!');
     });
   });
 
