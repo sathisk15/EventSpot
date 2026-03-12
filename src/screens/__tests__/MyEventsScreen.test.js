@@ -37,6 +37,7 @@ const mockUser = {
 
 const mockNavigation = {
   goBack: jest.fn(),
+  navigate: jest.fn(),
 };
 
 const mockEvents = [
@@ -143,5 +144,17 @@ describe('MyEventsScreen', () => {
     fireEvent.press(screen.getByText('back'));
 
     expect(mockNavigation.goBack).toHaveBeenCalled();
+  });
+
+  it('navigates home from the header', async () => {
+    const screen = renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('My Events')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('action-home'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('Map');
   });
 });

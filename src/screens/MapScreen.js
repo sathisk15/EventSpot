@@ -113,13 +113,15 @@ const MapScreen = ({navigation}) => {
       return;
     }
 
-    webViewRef.current.postMessage(
-      JSON.stringify({
-        type: 'SET_EVENTS',
-        events: filterEvents(events, eventFilterQuery, eventFilterCategory),
-      }),
-    );
+    postMapMessage({
+      type: 'SET_EVENTS',
+      events: filterEvents(events, eventFilterQuery, eventFilterCategory),
+    });
   }, [events, eventFilterCategory, eventFilterQuery]);
+
+  const postMapMessage = payload => {
+    webViewRef.current?.postMessage(JSON.stringify(payload));
+  };
 
   const resolveAddress = async (latitude, longitude) => {
     try {
@@ -141,47 +143,66 @@ const MapScreen = ({navigation}) => {
     address: await resolveAddress(latitude, longitude),
   });
 
+  const getDeviceCoordinates = async () => {
+    const {status} = await Location.requestForegroundPermissionsAsync();
+
+    if (status !== 'granted') {
+      throw new Error('Location permission is required to center the map.');
+    }
+
+    const enabled = await Location.hasServicesEnabledAsync();
+    if (!enabled) {
+      throw new Error('Location services are disabled.');
+    }
+
+    let currentLocation = null;
+
+    try {
+      currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+    } catch (error) {
+      currentLocation = await Location.getLastKnownPositionAsync({});
+    }
+
+    if (!currentLocation?.coords) {
+      throw new Error('Unable to determine your current location.');
+    }
+
+    return {
+      latitude: currentLocation.coords.latitude,
+      longitude: currentLocation.coords.longitude,
+    };
+  };
+
+  const updateMapLocation = nextLocation => {
+    setLocation(nextLocation);
+    postMapMessage({
+      type: 'UPDATE_LOCATION',
+      lat: nextLocation.latitude,
+      lng: nextLocation.longitude,
+    });
+  };
+
   const loadInitialData = async () => {
     setLoading(true);
     try {
       // 1. Fetch Location
-      let {status} = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg('Permission to access location was denied');
-        setLoading(false);
-        return;
-      }
-
-      const enabled = await Location.hasServicesEnabledAsync();
-      if (!enabled) {
-        setErrorMsg('Location services are disabled');
-        setLoading(false);
-        return;
-      }
-
-      let currentLocation;
-      try {
-        currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-      } catch (e) {
-        currentLocation = await Location.getLastKnownPositionAsync({});
-      }
-
-      if (currentLocation) {
-        const loc = {
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        };
-        setLocation(loc);
-      }
+      const loc = await getDeviceCoordinates();
+      setLocation(loc);
 
       // 2. Fetch Events
       const fetchedEvents = await fetchEvents();
       setEvents(fetchedEvents);
     } catch (error) {
       console.error('Initialization error:', error);
-      setErrorMsg('Error initializing map data');
+      if (error.message === 'Location permission is required to center the map.') {
+        setErrorMsg('Permission to access location was denied');
+      } else if (error.message === 'Location services are disabled.') {
+        setErrorMsg('Location services are disabled');
+      } else {
+        setErrorMsg('Error initializing map data');
+      }
     } finally {
       setLoading(false);
     }
@@ -248,29 +269,30 @@ const MapScreen = ({navigation}) => {
 
     setIsRecentering(true);
     try {
-      let currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const newLoc = {
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      };
-
-      setLocation(newLoc);
-
-      webViewRef.current.postMessage(
-        JSON.stringify({
-          type: 'UPDATE_LOCATION',
-          lat: newLoc.latitude,
-          lng: newLoc.longitude,
-        }),
-      );
+      const newLoc = await getDeviceCoordinates();
+      updateMapLocation(newLoc);
     } catch (error) {
       console.error('Recenter error:', error);
+      if (location) {
+        postMapMessage({
+          type: 'UPDATE_LOCATION',
+          lat: location.latitude,
+          lng: location.longitude,
+        });
+        Alert.alert(
+          'Location Unavailable',
+          'Unable to refresh your live location. The map stayed on your last known position.',
+        );
+      } else {
+        Alert.alert('Location Error', error.message);
+      }
     } finally {
       setIsRecentering(false);
     }
+  };
+
+  const zoomMap = direction => {
+    postMapMessage({type: direction});
   };
 
   const onSaveEvent = async eventData => {
@@ -550,16 +572,35 @@ const MapScreen = ({navigation}) => {
             }));
           });
 
-          window.addEventListener('message', function(event) {
-            var data = JSON.parse(event.data);
+          function handleNativeMessage(event) {
+            var rawData = event && event.data ? event.data : event;
+            if (!rawData) {
+              return;
+            }
+
+            var data;
+            try {
+              data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+            } catch (error) {
+              log('Leaflet: Failed to parse native message');
+              return;
+            }
+
             if (data.type === 'UPDATE_LOCATION') {
               if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
               map.setView([data.lat, data.lng], 15);
               userMarker.setLatLng([data.lat, data.lng]);
+            } else if (data.type === 'ZOOM_IN') {
+              map.zoomIn();
+            } else if (data.type === 'ZOOM_OUT') {
+              map.zoomOut();
             } else if (data.type === 'SET_EVENTS') {
               renderEvents(data.events);
             }
-          });
+          }
+
+          window.addEventListener('message', handleNativeMessage);
+          document.addEventListener('message', handleNativeMessage);
         </script>
       </body>
     </html>
@@ -765,6 +806,21 @@ const MapScreen = ({navigation}) => {
             />
 
             <Portal>
+              <View style={styles.mapControls}>
+                <TouchableOpacity
+                  testID="zoom-in-button"
+                  style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
+                  onPress={() => zoomMap('ZOOM_IN')}>
+                  <Text style={styles.mapControlText}>+</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  testID="zoom-out-button"
+                  style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
+                  onPress={() => zoomMap('ZOOM_OUT')}>
+                  <Text style={styles.mapControlText}>-</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.actionDock}>
                 <TouchableOpacity
                   style={[
@@ -907,6 +963,27 @@ const styles = StyleSheet.create({
   content: {flex: 1, position: 'relative'},
   centerBox: {flex: 1, justifyContent: 'center', alignItems: 'center'},
   map: {flex: 1},
+  mapControls: {
+    position: 'absolute',
+    right: 16,
+    bottom: 110,
+    alignItems: 'center',
+  },
+  mapControlButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    elevation: 8,
+  },
+  mapControlText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 26,
+  },
   actionDock: {
     position: 'absolute',
     left: 16,

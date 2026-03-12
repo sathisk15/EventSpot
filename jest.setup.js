@@ -6,8 +6,10 @@ jest.mock('react-native-webview', () => {
   const React = require('react');
   return {
     WebView: React.forwardRef((props, ref) => {
+      const postMessage = jest.fn();
+      global.__WEBVIEW_POST_MESSAGE_MOCK__ = postMessage;
       React.useImperativeHandle(ref, () => ({
-        postMessage: jest.fn(),
+        postMessage,
       }));
       return (
         <View 

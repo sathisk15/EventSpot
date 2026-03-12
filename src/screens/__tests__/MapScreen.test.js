@@ -99,6 +99,9 @@ describe('MapScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    if (global.__WEBVIEW_POST_MESSAGE_MOCK__) {
+      global.__WEBVIEW_POST_MESSAGE_MOCK__.mockClear();
+    }
     focusListener = undefined;
     mockNavigation.addListener.mockImplementation((eventName, callback) => {
       if (eventName === 'focus') {
@@ -251,6 +254,22 @@ describe('MapScreen', () => {
       expect(getByText('Event Details Mock')).toBeTruthy();
       expect(getByText('Cool Concert')).toBeTruthy();
     });
+  });
+
+  it('renders zoom controls and sends zoom commands to the map', async () => {
+    const { getByTestId } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent.press(getByTestId('zoom-in-button'));
+    fireEvent.press(getByTestId('zoom-out-button'));
+
+    expect(global.__WEBVIEW_POST_MESSAGE_MOCK__).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'ZOOM_IN' })
+    );
+    expect(global.__WEBVIEW_POST_MESSAGE_MOCK__).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'ZOOM_OUT' })
+    );
   });
 
   it('performs location search and updates map', async () => {
@@ -408,11 +427,32 @@ describe('MapScreen', () => {
     });
   });
 
-  it('logs recenter errors without crashing', async () => {
+  it('falls back to the last known position when recenter live GPS fails', async () => {
+    Location.getCurrentPositionAsync
+      .mockResolvedValueOnce({ coords: { latitude: 51.1079, longitude: 17.0385 } })
+      .mockRejectedValueOnce(new Error('GPS failed'));
+    Location.getLastKnownPositionAsync.mockResolvedValueOnce({
+      coords: { latitude: 50.0647, longitude: 19.9450 }
+    });
+
+    const { getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
+
+    await waitFor(() => expect(fetchEvents).toHaveBeenCalled());
+
+    fireEvent.press(getByText('Recenter'));
+
+    await waitFor(() => {
+      expect(Location.getLastKnownPositionAsync).toHaveBeenCalled();
+      expect(Alert.alert).not.toHaveBeenCalled();
+    });
+  });
+
+  it('shows an alert when recenter cannot find any location', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     Location.getCurrentPositionAsync
       .mockResolvedValueOnce({ coords: { latitude: 51.1079, longitude: 17.0385 } })
       .mockRejectedValueOnce(new Error('GPS failed'));
+    Location.getLastKnownPositionAsync.mockResolvedValueOnce(null);
 
     const { getByText } = render(<MapScreen navigation={{}} />, { wrapper: providers });
 
@@ -422,6 +462,10 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Recenter error:', expect.any(Error));
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Location Unavailable',
+        'Unable to refresh your live location. The map stayed on your last known position.',
+      );
     });
 
     consoleSpy.mockRestore();

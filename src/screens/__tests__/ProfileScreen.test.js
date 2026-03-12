@@ -238,6 +238,16 @@ describe('ProfileScreen', () => {
     expect(mockNavigation.navigate).toHaveBeenCalledWith('MyEvents');
   });
 
+  it('navigates home from the header', async () => {
+    const screen = renderWithUser();
+
+    await waitForInitialProfileLoad(screen);
+
+    fireEvent.press(screen.getByTestId('action-home'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('Map');
+  });
+
   it('uploads a profile image successfully', async () => {
     ImagePicker.requestMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: true });
     ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({

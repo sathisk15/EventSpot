@@ -181,6 +181,7 @@ const ProfileScreen = ({ navigation }) => {
       <Appbar.Header elevated>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Profile & Settings" />
+        <Appbar.Action icon="home" onPress={() => navigation.navigate('Map')} />
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={styles.content}>
