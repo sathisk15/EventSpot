@@ -108,6 +108,8 @@ jest.mock('./src/config/firebase', () => {
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(),
+  initializeAuth: jest.fn(),
+  getReactNativePersistence: jest.fn(() => 'mock-persistence'),
   updateProfile: jest.fn(),
   updatePassword: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
