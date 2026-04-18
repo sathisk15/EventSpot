@@ -30,6 +30,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { auth, storage, db } from '../config/firebase';
 import { AuthContext } from '../contexts/AuthContext';
 import { saveRealtimeEventsPreference } from '../services/userPreferencesService';
+import { spacing, radius, theme as appTheme } from '../config/theme';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
@@ -490,17 +491,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 24,
-    paddingBottom: 144,
+    padding: spacing.lg,
+    paddingBottom: 80,
     flexGrow: 1,
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: radius.lg,
   },
   avatarWrapper: {
     position: 'relative',
@@ -512,27 +513,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#00000099',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: 'white',
   },
   section: {
-    marginBottom: 18,
+    marginBottom: spacing.md,
   },
   sectionCard: {
-    padding: 18,
-    borderRadius: 22,
+    padding: spacing.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
   },
   sectionTitle: {
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   input: {
     marginBottom: 12,
   },
   button: {
-    marginVertical: 4,
+    marginVertical: spacing.xs,
   },
   logoutSection: {
     marginTop: 6,
@@ -541,14 +542,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   successText: {
-    color: 'green',
+    color: appTheme.colors.success,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     fontSize: 14,
   },
   errorText: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     fontSize: 14,
   },
   preferenceRow: {
@@ -561,26 +562,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   preferenceHint: {
-    marginTop: 4,
+    marginTop: spacing.xs,
     opacity: 0.68,
     lineHeight: 19,
   },
   modalContent: {
-    padding: 24,
-    margin: 20,
-    borderRadius: 16,
+    padding: spacing.lg,
+    margin: spacing.lg,
+    borderRadius: radius.md,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   modalImageContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   fullSizeImage: {
     width: 250,
@@ -588,7 +589,7 @@ const styles = StyleSheet.create({
     borderRadius: 125,
   },
   modalButton: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   }
 });
 
