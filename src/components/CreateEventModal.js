@@ -25,6 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { EVENT_CATEGORIES } from '../constants/eventCategories';
+import { spacing, radius, elevation } from '../config/theme';
 
 const DEFAULT_EVENT_DURATION_MINUTES = 60;
 
@@ -556,32 +557,31 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   form: {
-    padding: 16,
+    padding: spacing.md,
   },
   searchSection: {
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   locationInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dateTimeSection: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   categorySection: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   searchBar: {
-    elevation: 2,
-    backgroundColor: 'white',
+    elevation: elevation.low,
   },
   searchBarInput: {
     flex: 1,
   },
   resultsCard: {
-    marginTop: 4,
+    marginTop: spacing.xs,
     maxHeight: 200,
-    elevation: 4,
+    elevation: elevation.mid,
     zIndex: 1000,
   },
   selectedLocationBox: {
@@ -589,20 +589,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   input: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   categoryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   categoryChip: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   dateTimeContainer: {
     flexDirection: 'row',
@@ -613,14 +613,14 @@ const styles = StyleSheet.create({
     flex: 0.48,
   },
   dateTimeButton: {
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   durationRow: {
     marginBottom: 12,
   },
   imageScroll: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   imageWrapper: {
     position: 'relative',
@@ -629,18 +629,17 @@ const styles = StyleSheet.create({
   imagePreview: {
     width: 100,
     height: 100,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   removeIcon: {
     position: 'absolute',
     top: -10,
     right: -10,
-    backgroundColor: 'white',
   },
   addImage: {
     width: 100,
     height: 100,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: 2,
     borderStyle: 'dashed',
     justifyContent: 'center',
