@@ -1,11 +1,11 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, TextInput, Button, useTheme, HelperText } from 'react-native-paper';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, TextInput, Button, useTheme, HelperText, Surface } from 'react-native-paper';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthContext } from '../contexts/AuthContext';
+import { spacing, radius } from '../config/theme';
 
-// Ensure the web browser redirect handling completes correctly
 WebBrowser.maybeCompleteAuthSession();
 
 const RegisterScreen = ({ navigation }) => {
@@ -20,7 +20,7 @@ const RegisterScreen = ({ navigation }) => {
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Temp fallback to prevent crash if not explicitly set
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   useEffect(() => {
@@ -49,11 +49,11 @@ const RegisterScreen = ({ navigation }) => {
     try {
       await loginWithGoogle(idToken);
     } catch (error) {
-       setFirebaseError(getFriendlyErrorMessage(error));
+      setFirebaseError(getFriendlyErrorMessage(error));
     } finally {
-       setLoading(false);
+      setLoading(false);
     }
-  }
+  };
 
   const validateForm = () => {
     let isValid = true;
@@ -64,7 +64,6 @@ const RegisterScreen = ({ navigation }) => {
     } else {
       setEmailError('');
     }
-
     if (password.length < 6) {
       setPasswordError('Password must be at least 6 characters');
       isValid = false;
@@ -76,7 +75,6 @@ const RegisterScreen = ({ navigation }) => {
 
   const handleRegister = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
     try {
       await register(email, password);
@@ -88,93 +86,152 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>Join EventSpot</Text>
-      
-      <TextInput
-        mode="outlined"
-        label="Email"
-        value={email}
-        onChangeText={(text) => { setEmail(text); setEmailError(''); setFirebaseError(''); }}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={styles.input}
-        error={!!emailError}
-      />
-      <HelperText type="error" visible={!!emailError}>
-        {emailError}
-      </HelperText>
-      
-      <TextInput
-        mode="outlined"
-        label="Password"
-        value={password}
-        onChangeText={(text) => { setPassword(text); setPasswordError(''); setFirebaseError(''); }}
-        secureTextEntry
-        style={styles.input}
-        error={!!passwordError}
-      />
-      <HelperText type="error" visible={!!passwordError}>
-        {passwordError}
-      </HelperText>
-      
-      <HelperText type="error" visible={!!firebaseError} style={styles.firebaseError}>
-        {firebaseError}
-      </HelperText>
+    <ScrollView
+      contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.header}>
+        <Surface style={[styles.logoBadge, { backgroundColor: theme.colors.secondaryContainer }]} elevation={0}>
+          <Text variant="labelLarge" style={{ color: theme.colors.onSecondaryContainer }}>
+            New Account
+          </Text>
+        </Surface>
+        <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>
+          Join EventSpot
+        </Text>
+        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+          Create an account to get started
+        </Text>
+      </View>
 
-      <Button 
-        mode="contained" 
-        onPress={handleRegister} 
-        style={styles.button}
-        loading={loading}
-        disabled={loading}
-      >
-        Register
-      </Button>
+      <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <TextInput
+          mode="outlined"
+          label="Email"
+          value={email}
+          onChangeText={(text) => { setEmail(text); setEmailError(''); setFirebaseError(''); }}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
+          error={!!emailError}
+        />
+        <HelperText type="error" visible={!!emailError}>
+          {emailError}
+        </HelperText>
+
+        <TextInput
+          mode="outlined"
+          label="Password"
+          value={password}
+          onChangeText={(text) => { setPassword(text); setPasswordError(''); setFirebaseError(''); }}
+          secureTextEntry
+          style={styles.input}
+          error={!!passwordError}
+        />
+        <HelperText type="error" visible={!!passwordError}>
+          {passwordError}
+        </HelperText>
+
+        <HelperText type="error" visible={!!firebaseError} style={styles.firebaseError}>
+          {firebaseError}
+        </HelperText>
+
+        <Button
+          mode="contained"
+          onPress={handleRegister}
+          style={styles.primaryButton}
+          contentStyle={styles.buttonContent}
+          loading={loading}
+          disabled={loading}
+        >
+          Create Account
+        </Button>
+
+        <View style={styles.dividerRow}>
+          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginHorizontal: spacing.sm }}>
+            or
+          </Text>
+          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+        </View>
+
+        <Button
+          mode="outlined"
+          icon="google"
+          style={styles.googleButton}
+          contentStyle={styles.buttonContent}
+          onPress={() => promptAsync()}
+          disabled={!request || loading}
+        >
+          Continue with Google
+        </Button>
+      </Surface>
 
       <Button
-        mode="outlined"
-        icon="google"
-        style={styles.button}
-        onPress={() => promptAsync()}
-        disabled={!request || loading}
-      >
-        Sign in with Google
-      </Button>
-      
-      <Button 
-        mode="text" 
+        mode="text"
         onPress={() => navigation.navigate('Login')}
+        style={styles.switchButton}
       >
         Already have an account? Login
       </Button>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 24,
+    flexGrow: 1,
+    padding: spacing.lg,
     justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logoBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    marginBottom: spacing.md,
   },
   title: {
     fontWeight: 'bold',
-    marginBottom: 32,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
+  card: {
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
   input: {
-    marginBottom: 2, // Reduced margin since HelperText takes up space
+    marginBottom: spacing.xs,
   },
   firebaseError: {
     textAlign: 'center',
-    marginBottom: 8,
-    fontSize: 14,
+    marginBottom: spacing.sm,
   },
-  button: {
-    marginTop: 8,
-    marginBottom: 16,
-    paddingVertical: 6,
+  primaryButton: {
+    marginTop: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  buttonContent: {
+    paddingVertical: spacing.sm,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  googleButton: {
+    borderRadius: radius.sm,
+  },
+  switchButton: {
+    alignSelf: 'center',
   },
 });
 

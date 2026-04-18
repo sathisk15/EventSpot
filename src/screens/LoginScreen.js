@@ -1,11 +1,11 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, TextInput, Button, useTheme, HelperText } from 'react-native-paper';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, TextInput, Button, useTheme, HelperText, Surface } from 'react-native-paper';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthContext } from '../contexts/AuthContext';
+import { spacing, radius } from '../config/theme';
 
-// Ensure the web browser redirect handling completes correctly
 WebBrowser.maybeCompleteAuthSession();
 
 const LoginScreen = ({ navigation }) => {
@@ -20,7 +20,7 @@ const LoginScreen = ({ navigation }) => {
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Temp fallback to prevent crash if not explicitly set
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   useEffect(() => {
@@ -51,11 +51,11 @@ const LoginScreen = ({ navigation }) => {
     try {
       await loginWithGoogle(idToken);
     } catch (error) {
-       setFirebaseError(getFriendlyErrorMessage(error));
+      setFirebaseError(getFriendlyErrorMessage(error));
     } finally {
-       setLoading(false);
+      setLoading(false);
     }
-  }
+  };
 
   const validateForm = () => {
     let isValid = true;
@@ -66,7 +66,6 @@ const LoginScreen = ({ navigation }) => {
     } else {
       setEmailError('');
     }
-
     if (password.length < 6) {
       setPasswordError('Password must be at least 6 characters');
       isValid = false;
@@ -78,7 +77,6 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
     try {
       await login(email, password);
@@ -90,95 +88,158 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>EventSpot</Text>
-      
-      <TextInput
-        mode="outlined"
-        label="Email"
-        value={email}
-        onChangeText={(text) => { setEmail(text); setEmailError(''); setFirebaseError(''); }}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={styles.input}
-        error={!!emailError}
-      />
-      <HelperText type="error" visible={!!emailError}>
-        {emailError}
-      </HelperText>
-      
-      <TextInput
-        mode="outlined"
-        label="Password"
-        value={password}
-        onChangeText={(text) => { setPassword(text); setPasswordError(''); setFirebaseError(''); }}
-        secureTextEntry
-        style={styles.input}
-        error={!!passwordError}
-      />
-      <HelperText type="error" visible={!!passwordError}>
-        {passwordError}
-      </HelperText>
-      
-      <HelperText type="error" visible={!!firebaseError} style={styles.firebaseError}>
-        {firebaseError}
-      </HelperText>
+    <ScrollView
+      contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.header}>
+        <Surface style={[styles.logoSurface, { backgroundColor: theme.colors.primary }]} elevation={4}>
+          <Text style={styles.logoText}>ES</Text>
+        </Surface>
+        <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>
+          EventSpot
+        </Text>
+        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+          Discover events around you
+        </Text>
+      </View>
 
-      <Button 
-        mode="contained" 
-        onPress={handleLogin} 
-        style={styles.button}
-        loading={loading}
-        disabled={loading}
-      >
-        Login
-      </Button>
+      <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <TextInput
+          mode="outlined"
+          label="Email"
+          value={email}
+          onChangeText={(text) => { setEmail(text); setEmailError(''); setFirebaseError(''); }}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
+          error={!!emailError}
+        />
+        <HelperText type="error" visible={!!emailError}>
+          {emailError}
+        </HelperText>
+
+        <TextInput
+          mode="outlined"
+          label="Password"
+          value={password}
+          onChangeText={(text) => { setPassword(text); setPasswordError(''); setFirebaseError(''); }}
+          secureTextEntry
+          style={styles.input}
+          error={!!passwordError}
+        />
+        <HelperText type="error" visible={!!passwordError}>
+          {passwordError}
+        </HelperText>
+
+        <HelperText type="error" visible={!!firebaseError} style={styles.firebaseError}>
+          {firebaseError}
+        </HelperText>
+
+        <Button
+          mode="contained"
+          onPress={handleLogin}
+          style={styles.primaryButton}
+          contentStyle={styles.buttonContent}
+          loading={loading}
+          disabled={loading}
+        >
+          Login
+        </Button>
+
+        <View style={styles.dividerRow}>
+          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginHorizontal: spacing.sm }}>
+            or
+          </Text>
+          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+        </View>
+
+        <Button
+          mode="outlined"
+          icon="google"
+          style={styles.googleButton}
+          contentStyle={styles.buttonContent}
+          onPress={() => promptAsync()}
+          disabled={!request || loading}
+        >
+          Continue with Google
+        </Button>
+      </Surface>
 
       <Button
-        mode="outlined"
-        icon="google"
-        style={styles.button}
-        onPress={() => promptAsync()}
-        disabled={!request || loading}
-      >
-        Sign in with Google
-      </Button>
-      
-      <Button 
-        mode="text" 
+        mode="text"
         onPress={() => navigation.navigate('Register')}
+        style={styles.switchButton}
       >
         Don't have an account? Register
       </Button>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 24,
+    flexGrow: 1,
+    padding: spacing.lg,
     justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logoSurface: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   title: {
     fontWeight: 'bold',
-    marginBottom: 32,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
+  card: {
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
   input: {
-    marginBottom: 2, // Reduced margin since HelperText takes up space
+    marginBottom: spacing.xs,
   },
   firebaseError: {
     textAlign: 'center',
-    marginBottom: 8,
-    fontSize: 14,
+    marginBottom: spacing.sm,
   },
-  button: {
-    marginTop: 8,
-    marginBottom: 16,
-    paddingVertical: 6,
+  primaryButton: {
+    marginTop: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  buttonContent: {
+    paddingVertical: spacing.sm,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  googleButton: {
+    borderRadius: radius.sm,
+  },
+  switchButton: {
+    alignSelf: 'center',
   },
 });
 
 export default LoginScreen;
-
