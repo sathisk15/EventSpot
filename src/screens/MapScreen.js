@@ -5,7 +5,6 @@ import {
   Alert,
   TouchableOpacity,
   Keyboard,
-  ScrollView,
 } from 'react-native';
 import {
   Text,
@@ -14,11 +13,6 @@ import {
   ActivityIndicator,
   Avatar,
   FAB,
-  Searchbar,
-  List,
-  Card,
-  Portal,
-  Chip,
 } from 'react-native-paper';
 import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,7 +21,10 @@ import * as Location from 'expo-location';
 import {AuthContext} from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
-import { theme as appTheme, spacing, radius, elevation } from '../config/theme';
+import buildMapHtml from '../components/map/buildMapHtml';
+import MapSearchControls from '../components/map/MapSearchControls';
+import MapActionControls from '../components/map/MapActionControls';
+import { spacing, radius } from '../config/theme';
 import {
   fetchEvents,
   saveEvent,
@@ -36,7 +33,6 @@ import {
   deleteEvent,
   subscribeToEvents,
 } from '../services/eventService';
-import {EVENT_CATEGORIES} from '../constants/eventCategories';
 import { fetchRealtimeEventsPreference } from '../services/userPreferencesService';
 
 const formatCoordinateFallback = (latitude, longitude) =>
@@ -102,9 +98,7 @@ const MapScreen = ({navigation, route}) => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [eventFilterQuery, setEventFilterQuery] = useState('');
-  const [eventFilterCategory, setEventFilterCategory] = useState(
-    ALL_EVENT_CATEGORIES,
-  );
+  const [eventFilterCategory, setEventFilterCategory] = useState(ALL_EVENT_CATEGORIES);
   const [showEventFilters, setShowEventFilters] = useState(false);
 
   // Modal state
@@ -298,11 +292,9 @@ const MapScreen = ({navigation, route}) => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Location
       const loc = await getDeviceCoordinates();
       setLocation(loc);
       await refreshEvents();
-
     } catch (error) {
       console.error('Initialization error:', error);
       if (error.message === 'Location permission is required to center the map.') {
@@ -477,240 +469,15 @@ const MapScreen = ({navigation, route}) => {
     }
   };
 
-  const filteredEvents = filterEvents(
-    events,
-    eventFilterQuery,
-    eventFilterCategory,
+  const filteredEvents = filterEvents(events, eventFilterQuery, eventFilterCategory);
+
+  const mapHtml = useMemo(
+    () => buildMapHtml(theme.colors.primary, theme.colors.secondary),
+    [theme.colors.primary, theme.colors.secondary],
   );
 
-  // Leaflet HTML with OpenStreetMap Tiles
-  const mapHtml = useMemo(() => `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <style>
-          body { margin: 0; padding: 0; background: #f0f0f0; }
-          #map { height: 100vh; width: 100vw; }
-          .leaflet-control-attribution { display: none; }
-          
-          /* User Location Icon */
-          .user-location-icon .target-dot {
-            width: 14px; height: 14px; background-color: ${theme.colors.primary};
-            border: 3px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3); z-index: 2;
-          }
-          .user-location-icon .pulse {
-            position: absolute; width: 30px; height: 30px; background-color: ${theme.colors.primary};
-            opacity: 0.4; border-radius: 50%; animation: pulse-animation 2s infinite ease-out; z-index: 1;
-          }
-          @keyframes pulse-animation {
-            0% { transform: scale(0.5); opacity: 0.8; }
-            100% { transform: scale(3); opacity: 0; }
-          }
-
-          /* Droplet Event Marker */
-          .custom-leaflet-marker {
-            background: transparent;
-            border: none;
-          }
-
-          .event-pin {
-            position: relative;
-            width: 56px;
-            height: 76px;
-            animation: float-pin 3.2s ease-in-out infinite;
-            transform-origin: center bottom;
-          }
-          
-          @keyframes float-pin {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-          }
-
-          .event-pin-body {
-            position: relative;
-            width: 56px;
-            height: 56px;
-            margin-top: 2px;
-            border-radius: 50% 50% 50% 0;
-            background: rgba(255,255,255,0.96);
-            overflow: hidden;
-            transform: rotate(-45deg);
-            box-shadow:
-              0 16px 28px rgba(15, 23, 42, 0.24),
-              0 8px 14px rgba(15, 23, 42, 0.12);
-          }
-
-          .event-pin-media {
-            position: absolute;
-            inset: 4px;
-            border-radius: 50% 50% 50% 0;
-            overflow: hidden;
-          }
-
-          .event-pin-photo {
-            width: 100%;
-            height: 100%;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            display: block;
-            transform: rotate(45deg) scale(1.18);
-            transform-origin: center;
-          }
-
-          .event-pin-fallback {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.secondary});
-            color: white;
-            font-size: 18px;
-            font-weight: 800;
-            transform: rotate(45deg) scale(1.05);
-            transform-origin: center;
-          }
-
-          .event-pin-shadow {
-            position: absolute;
-            left: 50%;
-            bottom: 2px;
-            width: 26px;
-            height: 9px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.2);
-            filter: blur(3px);
-            opacity: 0.38;
-            transform: translateX(-50%);
-          }
-
-        </style>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script>
-          function sendEventClick(eventId) { 
-             window.ReactNativeWebView.postMessage(JSON.stringify({type: 'EVENT_CLICK', id: eventId})); 
-          }
-
-          var map = L.map('map', { zoomControl: false, attributionControl: false })
-            .setView([0, 0], 2);
-          
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-          // User Marker
-          var userIcon = L.divIcon({
-            className: 'user-location-icon',
-            html: '<div class="pulse"></div><div class="target-dot"></div>',
-            iconSize: [30, 30], iconAnchor: [15, 15]
-          });
-          var userMarker = L.marker([0, 0], { icon: userIcon }).addTo(map);
-
-          // Event Markers Group
-          var eventMarkersLayer = L.layerGroup().addTo(map);
-
-          function renderEvents(eventList) {
-            eventMarkersLayer.clearLayers();
-            eventList.forEach(function(ev) {
-              if (ev.location && ev.location.latitude !== undefined) {
-                var lat = parseFloat(ev.location.latitude);
-                var lng = parseFloat(ev.location.longitude);
-                
-                if (isNaN(lat) || isNaN(lng)) {
-                  return;
-                }
-
-                var badgeText = (ev.name ? ev.name.charAt(0) : 'E').toUpperCase();
-                var mediaHtml = ev.images && ev.images[0]
-                  ? '<div class="event-pin-photo" style="background-image: url(&quot;' + ev.images[0] + '&quot;);"></div>'
-                  : '<span class="event-pin-fallback">' + badgeText + '</span>';
-                
-                var pinHtml = '<div class="event-pin">' +
-                                '<div class="event-pin-body">' +
-                                  '<div class="event-pin-media">' + mediaHtml + '</div>' +
-                                '</div>' +
-                                '<div class="event-pin-shadow"></div>' +
-                              '</div>';
-
-                var pinIcon = L.divIcon({
-                  className: 'custom-leaflet-marker',
-                  html: pinHtml,
-                  iconSize: [56, 76], iconAnchor: [28, 74]
-                });
-                
-                var marker = L.marker([lat, lng], { icon: pinIcon })
-                  .addTo(eventMarkersLayer);
-                
-                marker.on('click', function() {
-                  sendEventClick(ev.id);
-                });
-              }
-            });
-          }
-
-          // Let React Native know we are ready
-          window.ReactNativeWebView.postMessage(JSON.stringify({type: 'READY'}));
-
-          // Initial Render
-          renderEvents([]);
-
-          // Map Click Handler
-          var tempMarker;
-          map.on('click', function(e) {
-            var lat = e.latlng.lat;
-            var lng = e.latlng.lng;
-            
-            // Show a temporary "Drop Pin"
-            if (tempMarker) map.removeLayer(tempMarker);
-            tempMarker = L.marker([lat, lng], { opacity: 0.6 }).addTo(map);
-            
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'MAP_CLICK', 
-              lat: lat, 
-              lng: lng
-            }));
-          });
-
-          function handleNativeMessage(event) {
-            var rawData = event && event.data ? event.data : event;
-            if (!rawData) {
-              return;
-            }
-
-            var data;
-            try {
-              data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-            } catch (error) {
-              return;
-            }
-
-            if (data.type === 'UPDATE_LOCATION') {
-              if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
-              map.setView([data.lat, data.lng], 15);
-              userMarker.setLatLng([data.lat, data.lng]);
-            } else if (data.type === 'ZOOM_IN') {
-              map.zoomIn();
-            } else if (data.type === 'ZOOM_OUT') {
-              map.zoomOut();
-            } else if (data.type === 'SET_EVENTS') {
-              renderEvents(data.events);
-            }
-          }
-
-          window.addEventListener('message', handleNativeMessage);
-          document.addEventListener('message', handleNativeMessage);
-        </script>
-      </body>
-    </html>
-  `, [theme.colors.primary, theme.colors.secondary]);
-
   return (
-    <View
-      style={[styles.container, {backgroundColor: theme.colors.background}]}>
+    <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
       <Appbar.Header elevated style={{backgroundColor: theme.colors.surface}}>
         <Appbar.Content
           title="EventSpot"
@@ -737,170 +504,47 @@ const MapScreen = ({navigation, route}) => {
         testID="map-search-container"
         style={[
           styles.searchContainer,
-          {
-            top: insets.top + APPBAR_CONTENT_HEIGHT + HEADER_TO_CONTROLS_GAP,
-          },
+          { top: insets.top + APPBAR_CONTENT_HEIGHT + HEADER_TO_CONTROLS_GAP },
         ]}>
-        <Card style={styles.controlsCard}>
-          <Text style={styles.controlsLabel}>Find a place</Text>
-          <Searchbar
-            placeholder="Search location..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            onSubmitEditing={() => handleSearch(searchQuery)}
-            onClearIconPress={() => {
-              setSearchQuery('');
-              setSearchResults([]);
-              setShowResults(false);
-            }}
-            loading={searchLoading}
-            style={styles.searchBar}
-          />
-          <View style={styles.controlsRow}>
-            <View style={styles.controlsActions}>
-              <TouchableOpacity
-                testID="toggle-filters"
-                onPress={() => setShowEventFilters(current => !current)}
-                style={[
-                  styles.controlButton,
-                  {
-                    backgroundColor: showEventFilters
-                      ? theme.colors.primary
-                      : theme.colors.surfaceVariant || '#EFF3F7',
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.controlButtonText,
-                    {
-                      color: showEventFilters
-                        ? theme.colors.onPrimary || '#FFFFFF'
-                        : theme.colors.onSurface || '#0F172A',
-                    },
-                  ]}>
-                  {showEventFilters ? 'Hide Filters' : 'Show Filters'}
-                </Text>
-              </TouchableOpacity>
-              {hasActiveSearchOrFilters ? (
-                <TouchableOpacity
-                  testID="clear-search-filters"
-                  onPress={clearSearchAndFilters}
-                  style={[
-                    styles.secondaryControlButton,
-                    {
-                      borderColor: theme.colors.outlineVariant || '#D5DEE8',
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.secondaryControlButtonText,
-                      {
-                        color: theme.colors.onSurface || '#0F172A',
-                      },
-                    ]}>
-                    Clear All
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <View style={styles.summaryPill}>
-              <Text style={styles.summaryPillText}>
-                {filteredEvents.length}{' '}
-                {filteredEvents.length === 1 ? 'event' : 'events'}
-              </Text>
-            </View>
-          </View>
-
-          {showResults && searchResults.length > 0 && (
-            <Card style={styles.resultsCard}>
-              <List.Section>
-                {searchResults.map((item, index) => (
-                  <List.Item
-                    key={index}
-                    title={item.display_name}
-                    onPress={() => selectSearchResult(item)}
-                    left={props => <List.Icon {...props} icon="map-marker" />}
-                  />
-                ))}
-              </List.Section>
-            </Card>
-          )}
-
-          {showEventFilters && (
-            <Card style={styles.filterCard}>
-              <Text style={styles.controlsLabel}>Filter events</Text>
-              <Searchbar
-                placeholder="Filter events by name, address, or category..."
-                onChangeText={setEventFilterQuery}
-                value={eventFilterQuery}
-                onClearIconPress={() => setEventFilterQuery('')}
-                style={styles.filterSearchBar}
-              />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterChips}>
-                {[ALL_EVENT_CATEGORIES, ...EVENT_CATEGORIES].map(category => {
-                  const selected = eventFilterCategory === category;
-
-                  return (
-                    <Chip
-                      key={category}
-                      selected={selected}
-                      onPress={() => setEventFilterCategory(category)}
-                      style={[
-                        styles.filterChip,
-                        selected && {
-                          backgroundColor:
-                            theme.colors.primaryContainer || '#DCEBFF',
-                        },
-                      ]}
-                      textStyle={
-                        selected
-                          ? {
-                              color:
-                                theme.colors.onPrimaryContainer ||
-                                theme.colors.primary,
-                            }
-                          : undefined
-                      }>
-                      {category}
-                    </Chip>
-                  );
-                })}
-              </ScrollView>
-            </Card>
-          )}
-        </Card>
+        <MapSearchControls
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          onSearch={handleSearch}
+          onClearSearch={() => {
+            setSearchQuery('');
+            setSearchResults([]);
+            setShowResults(false);
+          }}
+          searchLoading={searchLoading}
+          showResults={showResults}
+          searchResults={searchResults}
+          onSelectResult={selectSearchResult}
+          showFilters={showEventFilters}
+          onToggleFilters={() => setShowEventFilters(current => !current)}
+          eventFilterQuery={eventFilterQuery}
+          onEventFilterQueryChange={setEventFilterQuery}
+          eventFilterCategory={eventFilterCategory}
+          onEventFilterCategoryChange={setEventFilterCategory}
+          filteredEventsCount={filteredEvents.length}
+          hasActiveFilters={hasActiveSearchOrFilters}
+          onClearAll={clearSearchAndFilters}
+        />
       </View>
 
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator
-              animating={true}
-              color={theme.colors.primary}
-              size="large"
-            />
+            <ActivityIndicator animating={true} color={theme.colors.primary} size="large" />
             <Text style={{marginTop: 10}}>Mapping your world...</Text>
           </View>
         ) : errorMsg ? (
           <View style={styles.centerBox}>
             <Text
               variant="titleMedium"
-              style={{
-                color: theme.colors.error,
-                textAlign: 'center',
-                padding: 20,
-              }}>
+              style={{ color: theme.colors.error, textAlign: 'center', padding: 20 }}>
               {errorMsg}
             </Text>
-            <FAB
-              icon="refresh"
-              style={{marginTop: 20}}
-              onPress={loadInitialData}
-              label="Retry"
-            />
+            <FAB icon="refresh" style={{marginTop: 20}} onPress={loadInitialData} label="Retry" />
           </View>
         ) : location ? (
           <>
@@ -910,6 +554,7 @@ const MapScreen = ({navigation, route}) => {
               source={{html: mapHtml}}
               style={styles.map}
               javaScriptEnabled={true}
+              mixedContentMode="always"
               onMessage={event => {
                 const data = JSON.parse(event.nativeEvent.data);
                 if (data.type === 'READY') {
@@ -941,60 +586,15 @@ const MapScreen = ({navigation, route}) => {
             />
 
             {showMapChrome ? (
-              <Portal>
-                <View style={styles.mapControls}>
-                  <TouchableOpacity
-                    testID="zoom-in-button"
-                    style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
-                    onPress={() => zoomMap('ZOOM_IN')}>
-                    <Text style={styles.mapControlText}>+</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="zoom-out-button"
-                    style={[styles.mapControlButton, {backgroundColor: theme.colors.surface}]}
-                    onPress={() => zoomMap('ZOOM_OUT')}>
-                    <Text style={styles.mapControlText}>-</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.actionDock}>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      {backgroundColor: theme.colors.surface},
-                    ]}
-                    onPress={() => navigation.navigate('MyEvents')}>
-                    <Text style={styles.actionLabel}>My Events</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      styles.primaryActionButton,
-                      {backgroundColor: theme.colors.primary},
-                    ]}
-                    onPress={openCreateEventModal}>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        {color: theme.colors.onPrimary || '#FFFFFF'},
-                      ]}>
-                      Add Event
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      {backgroundColor: theme.colors.surface},
-                    ]}
-                    onPress={recenterMap}>
-                    <Text style={styles.actionLabel}>
-                      {isRecentering ? 'Recentering...' : 'Recenter'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </Portal>
+              <MapActionControls
+                onZoomIn={() => zoomMap('ZOOM_IN')}
+                onZoomOut={() => zoomMap('ZOOM_OUT')}
+                onMyEvents={() => navigation.navigate('MyEvents')}
+                onAddEvent={openCreateEventModal}
+                onRecenter={recenterMap}
+                isRecentering={isRecentering}
+              />
             ) : null}
-
           </>
         ) : null}
       </View>
@@ -1026,7 +626,7 @@ const MapScreen = ({navigation, route}) => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
+  container: { flex: 1 },
   searchContainer: {
     position: 'absolute',
     top: 88,
@@ -1034,147 +634,9 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 100,
   },
-  controlsCard: {
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    elevation: 6,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-  },
-  controlsLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    opacity: 0.6,
-    marginBottom: spacing.sm,
-  },
-  searchBar: {elevation: elevation.none},
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  controlsActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    flexWrap: 'wrap',
-  },
-  controlButton: {
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  controlButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  secondaryControlButton: {
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    marginLeft: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.88)',
-  },
-  secondaryControlButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  summaryPill: {
-    marginLeft: spacing.sm,
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: appTheme.colors.mapControlBg,
-    minWidth: 82,
-    alignItems: 'center',
-  },
-  summaryPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: appTheme.colors.mapControlText,
-  },
-  resultsCard: {
-    marginTop: spacing.sm,
-    maxHeight: 250,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-  },
-  filterCard: {
-    marginTop: 12,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: 14,
-    elevation: elevation.none,
-    borderRadius: radius.lg,
-    backgroundColor: appTheme.colors.mapControlBg,
-  },
-  filterSearchBar: {
-    elevation: elevation.none,
-  },
-  filterChips: {
-    paddingTop: spacing.sm,
-    paddingRight: spacing.sm,
-  },
-  filterChip: {
-    marginRight: spacing.sm,
-  },
-  content: {flex: 1, position: 'relative'},
-  centerBox: {flex: 1, justifyContent: 'center', alignItems: 'center'},
-  map: {flex: 1},
-  mapControls: {
-    position: 'absolute',
-    right: spacing.md,
-    bottom: 110,
-    alignItems: 'center',
-  },
-  mapControlButton: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-    elevation: elevation.high,
-  },
-  mapControlText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: appTheme.colors.mapDark,
-    lineHeight: 26,
-  },
-  actionDock: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    bottom: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    elevation: elevation.high,
-  },
-  actionButton: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    marginHorizontal: spacing.xs,
-  },
-  primaryActionButton: {
-    flex: 1.15,
-  },
-  actionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: appTheme.colors.mapDark,
-  },
+  content: { flex: 1, position: 'relative' },
+  centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  map: { flex: 1 },
   avatarContainer: {
     marginRight: spacing.md,
     position: 'relative',
@@ -1188,7 +650,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: appTheme.colors.success,
+    backgroundColor: '#4CAF50',
     borderWidth: 2,
     borderColor: 'white',
   },
