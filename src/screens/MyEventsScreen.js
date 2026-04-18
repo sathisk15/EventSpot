@@ -11,6 +11,7 @@ import {
   updateEvent,
 } from '../services/eventService';
 import { fetchRealtimeEventsPreference } from '../services/userPreferencesService';
+import { spacing, radius, elevation } from '../config/theme';
 
 const formatEventDate = event => new Date(event.startDate || event.date).toLocaleDateString();
 
@@ -196,7 +197,7 @@ const MyEventsScreen = ({ navigation }) => {
                   <Text variant="titleLarge" style={styles.cardTitle}>
                     {event.name}
                   </Text>
-                  <Text style={[styles.ownerPill, { color: theme.colors.primary }]}>
+                  <Text style={[styles.ownerPill, { color: theme.colors.primary, backgroundColor: theme.colors.primaryContainer }]}>
                     Posted by you
                   </Text>
                 </View>
@@ -249,16 +250,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
   },
   summaryCard: {
     marginBottom: 14,
-    borderRadius: 24,
-    elevation: 2,
+    borderRadius: radius.lg,
+    elevation: elevation.low,
   },
   summaryHeader: {
-    padding: 18,
+    padding: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -274,12 +275,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   summaryBadge: {
-    borderRadius: 999,
+    borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   centerState: {
-    paddingVertical: 48,
+    paddingVertical: spacing.xxl,
     alignItems: 'center',
   },
   loadingText: {
@@ -287,31 +288,31 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   emptyCard: {
-    borderRadius: 24,
-    elevation: 1,
+    borderRadius: radius.lg,
+    elevation: elevation.low,
   },
   emptyState: {
-    paddingVertical: 48,
-    paddingHorizontal: 20,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
   emptyText: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     opacity: 0.7,
     textAlign: 'center',
     lineHeight: 20,
   },
   card: {
     marginBottom: 12,
-    borderRadius: 24,
-    elevation: 2,
+    borderRadius: radius.lg,
+    elevation: elevation.low,
   },
   cardTitle: {
     fontWeight: 'bold',
     flex: 1,
   },
   cardContent: {
-    padding: 18,
+    padding: spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -323,16 +324,15 @@ const styles = StyleSheet.create({
   ownerPill: {
     fontSize: 12,
     fontWeight: '700',
-    backgroundColor: 'rgba(59,130,246,0.08)',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: radius.full,
     overflow: 'hidden',
   },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
     marginBottom: 12,
   },
   address: {
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    marginTop: 16,
+    marginTop: spacing.md,
     gap: 10,
     flexWrap: 'wrap',
   },
