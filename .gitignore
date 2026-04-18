@@ -44,3 +44,7 @@ yarn-error.*
 
 /coverage
 /builds/apk/
+
+# Claude Code
+CLAUDE.md
+.claude/
