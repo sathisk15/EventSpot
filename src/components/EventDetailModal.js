@@ -18,6 +18,7 @@ import {
   Divider
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { spacing, radius } from '../config/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -160,7 +161,8 @@ const EventDetailModal = ({
             styles.footer,
             {
               backgroundColor: theme.colors.surface,
-              paddingBottom: 16 + insets.bottom,
+              borderTopColor: theme.colors.outlineVariant,
+              paddingBottom: spacing.md + insets.bottom,
             },
           ]}>
           {isOwner ? (
@@ -209,59 +211,56 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   infoContainer: {
-    padding: 20,
+    padding: spacing.lg,
   },
   title: {
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: spacing.md,
   },
   authorText: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     opacity: 0.7,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 20,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  chip: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
+  chip: {},
   divider: {
-    marginVertical: 15,
+    marginVertical: spacing.md,
   },
   sectionLabel: {
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
     lineHeight: 24,
     opacity: 0.8,
   },
   locationBox: {
-    marginTop: 5,
+    marginTop: spacing.xs,
   },
   footer: {
-    padding: 16,
+    padding: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
   ownerActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   ownerButton: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   joinButton: {
-    borderRadius: 8,
+    borderRadius: radius.md,
   }
 });
 
