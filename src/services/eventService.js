@@ -15,33 +15,31 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import { db, auth } from '../config/firebase';
 
-const uploadEventImage = async (imageUri, user) => {
-  const bucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  const filename = `events/${user.uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${encodeURIComponent(filename)}`;
-  const idToken = await user.getIdToken();
+const uploadEventImage = async (imageUri) => {
+  const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
 
   const uploadResult = await FileSystem.uploadAsync(url, imageUri, {
     httpMethod: 'POST',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-      'Content-Type': 'image/jpeg',
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    fieldName: 'file',
+    parameters: {
+      upload_preset: uploadPreset,
+      folder: 'events',
     },
   });
 
   if (uploadResult.status !== 200) {
-    throw new Error(`Upload failed with status: ${uploadResult.status}`);
+    throw new Error(`Cloudinary upload failed with status: ${uploadResult.status}`);
   }
 
   const responseData = JSON.parse(uploadResult.body);
-  if (!responseData.downloadTokens) {
-    throw new Error('Upload succeeded but no download token was returned');
+  if (!responseData.secure_url) {
+    throw new Error('Upload succeeded but no URL was returned');
   }
 
-  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
-    filename
-  )}?alt=media&token=${responseData.downloadTokens}`;
+  return responseData.secure_url;
 };
 
 const getAuthenticatedUser = () => {
@@ -68,7 +66,7 @@ const resolveEventImageUrls = async (images = [], user) => {
     }
 
     try {
-      const downloadUrl = await uploadEventImage(imageUri, user);
+      const downloadUrl = await uploadEventImage(imageUri);
       imageUrls.push(downloadUrl);
     } catch (uploadError) {
       console.error('Individual upload failed:', uploadError);
