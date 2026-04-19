@@ -11,17 +11,23 @@ const buildMapHtml = (primaryColor, secondaryColor) => `
         .leaflet-control-attribution { display: none; }
 
         /* User Location Icon */
+        .user-location-icon {
+          display: flex; align-items: center; justify-content: center;
+          position: relative;
+        }
         .user-location-icon .target-dot {
-          width: 14px; height: 14px; background-color: ${primaryColor};
+          position: relative; width: 14px; height: 14px; background-color: ${primaryColor};
           border: 3px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3); z-index: 2;
         }
         .user-location-icon .pulse {
-          position: absolute; width: 30px; height: 30px; background-color: ${primaryColor};
+          position: absolute; top: 50%; left: 50%;
+          transform: translate(-50%, -50%) scale(0.5);
+          width: 30px; height: 30px; background-color: ${primaryColor};
           opacity: 0.4; border-radius: 50%; animation: pulse-animation 2s infinite ease-out; z-index: 1;
         }
         @keyframes pulse-animation {
-          0% { transform: scale(0.5); opacity: 0.8; }
-          100% { transform: scale(3); opacity: 0; }
+          0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+          100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
         }
 
         /* Droplet Event Marker */
