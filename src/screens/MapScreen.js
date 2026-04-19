@@ -554,6 +554,7 @@ const MapScreen = ({navigation, route}) => {
               source={{html: mapHtml}}
               style={styles.map}
               javaScriptEnabled={true}
+              scrollEnabled={false}
               mixedContentMode="always"
               onMessage={event => {
                 const data = JSON.parse(event.nativeEvent.data);
