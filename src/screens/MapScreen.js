@@ -409,6 +409,7 @@ const MapScreen = ({navigation, route}) => {
       setModalVisible(false);
       setModalInitialLocation(null);
       setEditingEvent(null);
+      await refreshEvents();
     } catch (error) {
       console.error(error);
       throw error;
@@ -447,6 +448,7 @@ const MapScreen = ({navigation, route}) => {
       setDetailVisible(false);
       setSelectedEvent(null);
       setEditingEvent(null);
+      await refreshEvents();
       Alert.alert('Success', 'Event deleted successfully!');
     } catch (error) {
       console.error(error);
