@@ -17,7 +17,6 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {WebView} from 'react-native-webview';
-import * as Location from 'expo-location';
 import {AuthContext} from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
 import EventDetailModal from '../components/EventDetailModal';
@@ -34,45 +33,11 @@ import {
   subscribeToEvents,
 } from '../services/eventService';
 import { fetchRealtimeEventsPreference } from '../services/userPreferencesService';
+import { buildResolvedLocation, getDeviceCoordinates } from '../utils/locationUtils';
+import { ALL_EVENT_CATEGORIES, filterEvents } from '../utils/eventFilters';
 
-const formatCoordinateFallback = (latitude, longitude) =>
-  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-
-const ALL_EVENT_CATEGORIES = 'All';
 const APPBAR_CONTENT_HEIGHT = 64;
 const HEADER_TO_CONTROLS_GAP = 32;
-
-const normalizeFilterValue = value => value?.trim().toLowerCase() || '';
-
-const filterEvents = (eventList, query, category) => {
-  const normalizedQuery = normalizeFilterValue(query);
-
-  return eventList.filter(event => {
-    const matchesCategory =
-      !category ||
-      category === ALL_EVENT_CATEGORIES ||
-      event.category === category;
-
-    if (!matchesCategory) {
-      return false;
-    }
-
-    if (!normalizedQuery) {
-      return true;
-    }
-
-    const haystack = [
-      event.name,
-      event.location?.address,
-      event.category,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
-    return haystack.includes(normalizedQuery);
-  });
-};
 
 const MapScreen = ({navigation, route}) => {
   const {user} = useContext(AuthContext);
@@ -218,58 +183,6 @@ const MapScreen = ({navigation, route}) => {
       setRealtimeEventsEnabled(false);
     }
   }
-
-  const resolveAddress = async (latitude, longitude) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
-        {headers: {'User-Agent': 'EventSpotApp/1.0'}},
-      );
-      const data = await response.json();
-      return data.display_name || formatCoordinateFallback(latitude, longitude);
-    } catch (error) {
-      console.error('Reverse geocode failed:', error);
-      return formatCoordinateFallback(latitude, longitude);
-    }
-  };
-
-  const buildResolvedLocation = async (latitude, longitude) => ({
-    latitude,
-    longitude,
-    address: await resolveAddress(latitude, longitude),
-  });
-
-  const getDeviceCoordinates = async () => {
-    const {status} = await Location.requestForegroundPermissionsAsync();
-
-    if (status !== 'granted') {
-      throw new Error('Location permission is required to center the map.');
-    }
-
-    const enabled = await Location.hasServicesEnabledAsync();
-    if (!enabled) {
-      throw new Error('Location services are disabled.');
-    }
-
-    let currentLocation = null;
-
-    try {
-      currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-    } catch (error) {
-      currentLocation = await Location.getLastKnownPositionAsync({});
-    }
-
-    if (!currentLocation?.coords) {
-      throw new Error('Unable to determine your current location.');
-    }
-
-    return {
-      latitude: currentLocation.coords.latitude,
-      longitude: currentLocation.coords.longitude,
-    };
-  };
 
   const updateMapLocation = nextLocation => {
     setLocation(nextLocation);

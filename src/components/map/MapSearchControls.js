@@ -3,8 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text, Card, Searchbar, List, Chip, useTheme } from 'react-native-paper';
 import { EVENT_CATEGORIES } from '../../constants/eventCategories';
 import { theme as appTheme, spacing, radius, elevation } from '../../config/theme';
-
-const ALL_EVENT_CATEGORIES = 'All';
+import { ALL_EVENT_CATEGORIES } from '../../utils/eventFilters';
 
 const MapSearchControls = ({
   searchQuery,

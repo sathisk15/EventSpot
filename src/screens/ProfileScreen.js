@@ -4,8 +4,6 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  TouchableOpacity,
-  Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -16,21 +14,18 @@ import {
   useTheme,
   Appbar,
   HelperText,
-  Avatar,
-  Portal,
-  Modal,
-  IconButton,
   Switch,
 } from 'react-native-paper';
 import { updateProfile, updatePassword } from 'firebase/auth';
-import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import { auth, storage, db } from '../config/firebase';
+import { auth, db } from '../config/firebase';
 import { AuthContext } from '../contexts/AuthContext';
 import { saveRealtimeEventsPreference } from '../services/userPreferencesService';
+import { uploadProfileImage } from '../services/profileService';
 import { spacing, radius, theme as appTheme } from '../config/theme';
+import ProfileHeader from '../components/profile/ProfileHeader';
+import ProfileImageModal from '../components/profile/ProfileImageModal';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
@@ -64,7 +59,7 @@ const ProfileScreen = ({ navigation }) => {
             setRealtimeEventsEnabled(false);
           }
         } catch (error) {
-          console.error("Error fetching user data:", error);
+          console.error('Error fetching user data:', error);
         }
       }
     };
@@ -77,7 +72,7 @@ const ProfileScreen = ({ navigation }) => {
     return 'U';
   };
 
-  const chooseProfileImage = async (source) => {
+  const chooseProfileImage = async source => {
     const isCamera = source === 'camera';
     const permissionResult = isCamera
       ? await ImagePicker.requestCameraPermissionsAsync()
@@ -87,7 +82,7 @@ const ProfileScreen = ({ navigation }) => {
       setErrorMsg(
         isCamera
           ? 'Permission to access camera is required!'
-          : 'Permission to access camera roll is required!'
+          : 'Permission to access camera roll is required!',
       );
       return;
     }
@@ -104,7 +99,7 @@ const ProfileScreen = ({ navigation }) => {
     });
 
     if (!result.canceled && result.assets[0].uri) {
-      uploadImage(result.assets[0].uri);
+      handleUploadImage(result.assets[0].uri);
     }
   };
 
@@ -134,47 +129,20 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
-  const uploadImage = async (uri) => {
+  const handleUploadImage = async uri => {
     if (!uri) return;
 
     setUploadingImage(true);
-    setErrorMsg("");
-    setMessage("");
+    setErrorMsg('');
+    setMessage('');
 
     try {
-      const bucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
-      const path = `profiles/${user.uid}.jpg`;
-      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${encodeURIComponent(path)}`;
-
-      const idToken = await auth.currentUser.getIdToken();
-
-      const uploadResult = await FileSystem.uploadAsync(url, uri, {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'image/jpeg'
-        }
-      });
-
-      if (uploadResult.status !== 200) {
-        throw new Error(`Upload failed with status: ${uploadResult.status} - ${uploadResult.body}`);
-      }
-
-      const responseData = JSON.parse(uploadResult.body);
-      const downloadToken = responseData.downloadTokens;
-      
-      const photoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${downloadToken}`;
-
-      await updateProfile(auth.currentUser, {
-        photoURL,
-      });
-
-      setMessage("Profile picture updated successfully!");
+      await uploadProfileImage(user.uid, uri);
+      setMessage('Profile picture updated successfully!');
       setModalVisible(false);
     } catch (error) {
-       console.error("Native Upload error:", error);
-       setErrorMsg("Image upload failed: " + error.message);
+      console.error('Native Upload error:', error);
+      setErrorMsg('Image upload failed: ' + error.message);
     } finally {
       setUploadingImage(false);
     }
@@ -190,17 +158,12 @@ const ProfileScreen = ({ navigation }) => {
     setMessage('');
     setErrorMsg('');
     try {
-      // 1. Update Auth Display Name
-      await updateProfile(auth.currentUser, {
-        displayName: displayName.trim()
-      });
-
-      // 2. Update Firestore Bio & Social Links
-      await setDoc(doc(db, 'users', user.uid), {
-        bio: bio.trim(),
-        socialLink: socialLink.trim()
-      }, { merge: true });
-
+      await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { bio: bio.trim(), socialLink: socialLink.trim() },
+        { merge: true },
+      );
       setMessage('Profile updated successfully!');
     } catch (error) {
       setErrorMsg(error.message);
@@ -224,9 +187,11 @@ const ProfileScreen = ({ navigation }) => {
       setNewPassword('');
     } catch (error) {
       if (error.code === 'auth/requires-recent-login') {
-         setErrorMsg('This operation is sensitive and requires recent authentication. Please log out and log back in before trying again.');
+        setErrorMsg(
+          'This operation is sensitive and requires recent authentication. Please log out and log back in before trying again.',
+        );
       } else {
-         setErrorMsg(error.message);
+        setErrorMsg(error.message);
       }
     } finally {
       setLoadingPassword(false);
@@ -259,32 +224,13 @@ const ProfileScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View
-            style={[
-              styles.headerSection,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
-            ]}
-          >
-            <TouchableOpacity onPress={() => setModalVisible(true)} disabled={uploadingImage} style={styles.avatarWrapper}>
-              {user?.photoURL ? (
-                <Avatar.Image size={80} source={{ uri: user.photoURL }} style={{ backgroundColor: theme.colors.surfaceVariant }} />
-              ) : (
-                <Avatar.Text size={80} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
-              )}
-              <View style={styles.editBadge}>
-                <Text style={{color: 'white', fontSize: 10, fontWeight: 'bold'}}>{uploadingImage ? '...' : 'EDIT'}</Text>
-              </View>
-            </TouchableOpacity>
-            <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginTop: 12 }}>
-              {user?.displayName || 'EventSpot User'}
-            </Text>
-            <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>
-              {user?.email}
-            </Text>
-          </View>
+          <ProfileHeader
+            user={user}
+            uploadingImage={uploadingImage}
+            onPressAvatar={() => setModalVisible(true)}
+            getInitials={getInitials}
+          />
+
           <HelperText type="info" visible={!!message} style={styles.successText}>
             {message}
           </HelperText>
@@ -296,10 +242,7 @@ const ProfileScreen = ({ navigation }) => {
             style={[
               styles.section,
               styles.sectionCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
             ]}
           >
             <Text variant="titleMedium" style={styles.sectionTitle}>Profile Details</Text>
@@ -307,14 +250,14 @@ const ProfileScreen = ({ navigation }) => {
               mode="outlined"
               label="Display Name"
               value={displayName}
-              onChangeText={(text) => { setDisplayName(text); setMessage(''); setErrorMsg(''); }}
+              onChangeText={text => { setDisplayName(text); setMessage(''); setErrorMsg(''); }}
               style={styles.input}
             />
             <TextInput
               mode="outlined"
               label="Short Bio"
               value={bio}
-              onChangeText={(text) => { setBio(text); setMessage(''); setErrorMsg(''); }}
+              onChangeText={text => { setBio(text); setMessage(''); setErrorMsg(''); }}
               style={styles.input}
               multiline
               numberOfLines={3}
@@ -324,7 +267,7 @@ const ProfileScreen = ({ navigation }) => {
               mode="outlined"
               label="Social Link"
               value={socialLink}
-              onChangeText={(text) => { setSocialLink(text); setMessage(''); setErrorMsg(''); }}
+              onChangeText={text => { setSocialLink(text); setMessage(''); setErrorMsg(''); }}
               style={styles.input}
               autoCapitalize="none"
               keyboardType="url"
@@ -345,10 +288,7 @@ const ProfileScreen = ({ navigation }) => {
             style={[
               styles.section,
               styles.sectionCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
             ]}
           >
             <Text variant="titleMedium" style={styles.sectionTitle}>Change Password</Text>
@@ -356,7 +296,7 @@ const ProfileScreen = ({ navigation }) => {
               mode="outlined"
               label="New Password"
               value={newPassword}
-              onChangeText={(text) => { setNewPassword(text); setMessage(''); setErrorMsg(''); }}
+              onChangeText={text => { setNewPassword(text); setMessage(''); setErrorMsg(''); }}
               secureTextEntry
               style={styles.input}
             />
@@ -375,10 +315,7 @@ const ProfileScreen = ({ navigation }) => {
             style={[
               styles.section,
               styles.sectionCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
             ]}
           >
             <Text variant="titleMedium" style={styles.sectionTitle}>My Activity</Text>
@@ -396,10 +333,7 @@ const ProfileScreen = ({ navigation }) => {
             style={[
               styles.section,
               styles.sectionCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
             ]}
           >
             <Text variant="titleMedium" style={styles.sectionTitle}>App Settings</Text>
@@ -423,10 +357,7 @@ const ProfileScreen = ({ navigation }) => {
             style={[
               styles.logoutSection,
               styles.sectionCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
             ]}
           >
             <Text variant="titleMedium" style={styles.sectionTitle}>Session</Text>
@@ -444,82 +375,27 @@ const ProfileScreen = ({ navigation }) => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Portal>
-        <Modal
-          visible={modalVisible}
-          onDismiss={() => setModalVisible(false)}
-          contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}
-        >
-          <View style={styles.modalHeader}>
-            <Text variant="titleLarge">Profile Picture</Text>
-            <IconButton
-              icon="close"
-              size={24}
-              onPress={() => setModalVisible(false)}
-            />
-          </View>
-          
-          <View style={styles.modalImageContainer}>
-             {user?.photoURL ? (
-                <Image source={{ uri: user.photoURL }} style={styles.fullSizeImage} resizeMode="contain" />
-              ) : (
-                <Avatar.Text size={200} label={getInitials()} style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
-              )}
-          </View>
-
-          <Button 
-            mode="contained" 
-            icon="camera" 
-            onPress={pickImage} 
-            loading={uploadingImage}
-            disabled={uploadingImage}
-            style={styles.modalButton}
-          >
-            {uploadingImage ? 'Uploading...' : 'Upload New Image'}
-          </Button>
-        </Modal>
-      </Portal>
+      <ProfileImageModal
+        visible={modalVisible}
+        onDismiss={() => setModalVisible(false)}
+        user={user}
+        onPickImage={pickImage}
+        uploadingImage={uploadingImage}
+        getInitials={getInitials}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  flex: { flex: 1 },
   content: {
     padding: spacing.lg,
     paddingBottom: 80,
     flexGrow: 1,
   },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-  },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  editBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#00000099',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: 'white',
-  },
-  section: {
-    marginBottom: spacing.md,
-  },
+  section: { marginBottom: spacing.md },
   sectionCard: {
     padding: spacing.md,
     borderRadius: radius.lg,
@@ -529,18 +405,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: spacing.md,
   },
-  input: {
-    marginBottom: 12,
-  },
-  button: {
-    marginVertical: spacing.xs,
-  },
-  logoutSection: {
-    marginTop: 6,
-  },
-  logoutButton: {
-    paddingVertical: 6,
-  },
+  input: { marginBottom: 12 },
+  button: { marginVertical: spacing.xs },
+  logoutSection: { marginTop: 6 },
+  logoutButton: { paddingVertical: 6 },
   successText: {
     color: appTheme.colors.success,
     textAlign: 'center',
@@ -558,39 +426,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  preferenceCopy: {
-    flex: 1,
-  },
+  preferenceCopy: { flex: 1 },
   preferenceHint: {
     marginTop: spacing.xs,
     opacity: 0.68,
     lineHeight: 19,
   },
-  modalContent: {
-    padding: spacing.lg,
-    margin: spacing.lg,
-    borderRadius: radius.md,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  modalImageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  fullSizeImage: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-  },
-  modalButton: {
-    marginTop: spacing.sm,
-  }
 });
 
 export default ProfileScreen;

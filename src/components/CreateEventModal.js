@@ -1,123 +1,29 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  Image, 
-  TouchableOpacity,
-  Alert
-} from 'react-native';
-import { 
-  TextInput, 
-  Button, 
-  Text, 
-  Appbar, 
-  useTheme, 
-  Portal, 
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import {
+  TextInput,
+  Button,
+  Appbar,
+  useTheme,
+  Portal,
   Modal,
-  IconButton,
-  Searchbar,
-  List,
-  Card,
-  Chip
 } from 'react-native-paper';
-import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { EVENT_CATEGORIES } from '../constants/eventCategories';
-import { spacing, radius, elevation } from '../config/theme';
-
-const DEFAULT_EVENT_DURATION_MINUTES = 60;
-
-const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60000);
-
-const createDefaultSchedule = () => {
-  const start = new Date();
-  start.setSeconds(0, 0);
-  return {
-    start,
-    end: addMinutes(start, DEFAULT_EVENT_DURATION_MINUTES),
-  };
-};
-
-const updateDatePart = (baseDate, selectedDate) => {
-  const nextDate = new Date(baseDate);
-  nextDate.setFullYear(
-    selectedDate.getFullYear(),
-    selectedDate.getMonth(),
-    selectedDate.getDate()
-  );
-  return nextDate;
-};
-
-const updateTimePart = (baseDate, selectedTime) => {
-  const nextDate = new Date(baseDate);
-  nextDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-  return nextDate;
-};
-
-const getDurationMinutes = (startDate, endDate) =>
-  Math.round((endDate.getTime() - startDate.getTime()) / 60000);
-
-const formatDuration = (minutes) => {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours === 0) {
-    return `${remainingMinutes} min`;
-  }
-
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${remainingMinutes}m`;
-};
-
-const formatCoordinateFallback = (latitude, longitude) =>
-  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-
-const formatAddressFromParts = (parts, latitude, longitude) => {
-  if (!parts) {
-    return formatCoordinateFallback(latitude, longitude);
-  }
-
-  const candidates = [
-    parts.name,
-    parts.street,
-    parts.district,
-    parts.city,
-    parts.subregion,
-    parts.region,
-    parts.country,
-  ].filter(Boolean);
-
-  if (candidates.length === 0) {
-    return formatCoordinateFallback(latitude, longitude);
-  }
-
-  return [...new Set(candidates)].join(', ');
-};
-
-const getScheduleFromEvent = (event) => {
-  if (!event) {
-    return createDefaultSchedule();
-  }
-
-  const start = new Date(event.startDate || event.date || new Date());
-  start.setSeconds(0, 0);
-
-  let end;
-  if (event.endDate) {
-    end = new Date(event.endDate);
-  } else if (typeof event.durationMinutes === 'number') {
-    end = addMinutes(start, event.durationMinutes);
-  } else {
-    end = addMinutes(start, DEFAULT_EVENT_DURATION_MINUTES);
-  }
-
-  return { start, end };
-};
+import { spacing } from '../config/theme';
+import {
+  DEFAULT_EVENT_DURATION_MINUTES,
+  addMinutes,
+  createDefaultSchedule,
+  updateDatePart,
+  updateTimePart,
+  getDurationMinutes,
+  formatAddressFromParts,
+  getScheduleFromEvent,
+} from '../utils/eventScheduleUtils';
+import LocationSearchInput from './event/LocationSearchInput';
+import CategoryPicker from './event/CategoryPicker';
+import SchedulePicker from './event/SchedulePicker';
+import EventImagePicker from './event/EventImagePicker';
 
 const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initialEvent = null }) => {
   const theme = useTheme();
@@ -131,17 +37,14 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Local location state
   const [localLocation, setLocalLocation] = React.useState(initialLocation);
-  
-  // Search states
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
 
-  // Sync modal state when it opens for create or edit.
   React.useEffect(() => {
     if (visible) {
       const nextSchedule = initialEvent ? getScheduleFromEvent(initialEvent) : createDefaultSchedule();
@@ -163,30 +66,30 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
 
   const durationMinutes = getDurationMinutes(startDate, endDate);
 
-  const handleLocationSearch = async (query) => {
+  const handleLocationSearch = async query => {
     if (!query) return;
     setSearchLoading(true);
     setShowResults(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-        { headers: { 'User-Agent': 'EventSpotApp/1.0' } }
+        { headers: { 'User-Agent': 'EventSpotApp/1.0' } },
       );
       const data = await response.json();
       setSearchResults(data);
     } catch (error) {
-      console.error("Search fetch failed:", error);
+      console.error('Search fetch failed:', error);
       Alert.alert('Search Error', 'Could not fetch location results.');
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const selectLocation = (item) => {
+  const selectLocation = item => {
     const newLoc = {
       latitude: parseFloat(item.lat),
       longitude: parseFloat(item.lon),
-      address: item.display_name
+      address: item.display_name,
     };
     setLocalLocation(newLoc);
     setSearchQuery(item.display_name);
@@ -209,11 +112,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
       const latitude = currentPosition.coords.latitude;
       const longitude = currentPosition.coords.longitude;
 
-      const [addressParts] = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-
+      const [addressParts] = await Location.reverseGeocodeAsync({ latitude, longitude });
       const address = formatAddressFromParts(addressParts, latitude, longitude);
       const currentLoc = { latitude, longitude, address };
 
@@ -227,63 +126,6 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
     } finally {
       setCurrentLocationLoading(false);
     }
-  };
-
-  const addPickedImages = assets => {
-    if (!assets?.length) {
-      return;
-    }
-
-    setImages(currentImages => [...currentImages, ...assets]);
-  };
-
-  const openPhotoLibrary = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Please allow photo library access to choose event images.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      addPickedImages(result.assets);
-    }
-  };
-
-  const openCamera = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Please allow camera access to take event photos.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      addPickedImages(result.assets);
-    }
-  };
-
-  const handlePickImage = async () => {
-    Alert.alert('Add Image', 'Choose image source', [
-      { text: 'Camera', onPress: openCamera },
-      { text: 'Photos', onPress: openPhotoLibrary },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const removeImage = (index) => {
-    const newImages = [...images];
-    newImages.splice(index, 1);
-    setImages(newImages);
   };
 
   const handlePickerChange = (event, selectedValue) => {
@@ -349,9 +191,8 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
         endDate: endDate.toISOString(),
         durationMinutes,
         images: images.map(img => img.uri),
-        location: localLocation, // Use localLocation which might have been changed via search
+        location: localLocation,
       });
-      // Reset form
       setEventName('');
       setDescription('');
       setCategory('');
@@ -369,7 +210,11 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
 
   return (
     <Portal>
-      <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+      <Modal
+        visible={visible}
+        onDismiss={onDismiss}
+        contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}
+      >
         <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
           <Appbar.Action icon="close" onPress={onDismiss} />
           <Appbar.Content title={initialEvent ? 'Edit Event' : 'Create Event'} />
@@ -380,57 +225,29 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
 
         <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
           <View style={styles.searchSection}>
-            <Text variant="labelLarge" style={styles.sectionTitle}>Event Location</Text>
-            <View style={styles.locationInputRow}>
-              <Searchbar
-                placeholder="Search location..."
-                onChangeText={(text) => {
-                  setSearchQuery(text);
-                  if (!text) {
-                    setSearchResults([]);
-                    setShowResults(false);
-                  }
-                }}
-                value={searchQuery}
-                onSubmitEditing={() => handleLocationSearch(searchQuery)}
-                onClearIconPress={() => {
-                  setSearchQuery('');
+            <LocationSearchInput
+              searchQuery={searchQuery}
+              onSearchQueryChange={text => {
+                setSearchQuery(text);
+                if (!text) {
                   setSearchResults([]);
                   setShowResults(false);
-                }}
-                loading={searchLoading}
-                style={[styles.searchBar, styles.searchBarInput]}
-              />
-              <IconButton
-                icon="crosshairs-gps"
-                mode="contained-tonal"
-                size={24}
-                disabled={currentLocationLoading}
-                onPress={handleUseCurrentLocation}
-                accessibilityLabel="Use current location"
-              />
-            </View>
-            {showResults && searchResults.length > 0 && (
-              <Card style={styles.resultsCard}>
-                <List.Section>
-                  {searchResults.map((item, index) => (
-                    <List.Item
-                      key={index}
-                      title={item.display_name}
-                      onPress={() => selectLocation(item)}
-                      left={props => <List.Icon {...props} icon="map-marker" />}
-                    />
-                  ))}
-                </List.Section>
-              </Card>
-            )}
-            {!showResults && localLocation && (
-              <View style={styles.selectedLocationBox}>
-                <Chip icon="check-circle" style={{ backgroundColor: theme.colors.primaryContainer }}>
-                  {localLocation.address}
-                </Chip>
-              </View>
-            )}
+                }
+              }}
+              onSearch={handleLocationSearch}
+              onClearSearch={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+                setShowResults(false);
+              }}
+              searchLoading={searchLoading}
+              showResults={showResults}
+              searchResults={searchResults}
+              onSelectResult={selectLocation}
+              onUseCurrentLocation={handleUseCurrentLocation}
+              currentLocationLoading={currentLocationLoading}
+              localLocation={localLocation}
+            />
           </View>
 
           <TextInput
@@ -440,7 +257,7 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
             mode="outlined"
             style={styles.input}
           />
-          
+
           <TextInput
             label="Description"
             value={description}
@@ -451,97 +268,26 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
             style={styles.input}
           />
 
-          <View style={styles.categorySection}>
-            <Text variant="labelLarge" style={styles.sectionTitle}>Category</Text>
-            <View style={styles.categoryRow}>
-              {EVENT_CATEGORIES.map(option => {
-                const selected = category === option;
-                return (
-                  <Chip
-                    key={option}
-                    selected={selected}
-                    showSelectedCheck={selected}
-                    onPress={() => setCategory(option)}
-                    style={[
-                      styles.categoryChip,
-                      selected ? { backgroundColor: theme.colors.primaryContainer } : null,
-                    ]}
-                  >
-                    {option}
-                  </Chip>
-                );
-              })}
-            </View>
-          </View>
+          <CategoryPicker category={category} onCategoryChange={setCategory} />
 
-          <View style={styles.dateTimeSection}>
-            <Text variant="labelLarge" style={styles.sectionTitle}>Schedule</Text>
+          <SchedulePicker
+            startDate={startDate}
+            endDate={endDate}
+            activePicker={activePicker}
+            onSetActivePicker={setActivePicker}
+            onPickerChange={handlePickerChange}
+            durationMinutes={durationMinutes}
+          />
 
-            <View style={styles.dateTimeContainer}>
-              <View style={styles.dateTimeItem}>
-                <Text variant="labelMedium">Starts On</Text>
-                <Button mode="outlined" onPress={() => setActivePicker('startDate')} icon="calendar" style={styles.dateTimeButton}>
-                  {startDate.toLocaleDateString()}
-                </Button>
-              </View>
-              <View style={styles.dateTimeItem}>
-                <Text variant="labelMedium">Start Time</Text>
-                <Button mode="outlined" onPress={() => setActivePicker('startTime')} icon="clock-start" style={styles.dateTimeButton}>
-                  {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Button>
-              </View>
-            </View>
-
-            <View style={styles.dateTimeContainer}>
-              <View style={styles.dateTimeItem}>
-                <Text variant="labelMedium">Ends On</Text>
-                <Button mode="outlined" onPress={() => setActivePicker('endDate')} icon="calendar-end" style={styles.dateTimeButton}>
-                  {endDate.toLocaleDateString()}
-                </Button>
-              </View>
-              <View style={styles.dateTimeItem}>
-                <Text variant="labelMedium">End Time</Text>
-                <Button mode="outlined" onPress={() => setActivePicker('endTime')} icon="clock-end" style={styles.dateTimeButton}>
-                  {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Button>
-              </View>
-            </View>
-
-            <View style={styles.durationRow}>
-              <Chip icon="timer-sand" style={{ backgroundColor: theme.colors.secondaryContainer }}>
-                Duration: {formatDuration(durationMinutes)}
-              </Chip>
-            </View>
-          </View>
-          {activePicker && (
-            <DateTimePicker
-              value={activePicker.startsWith('start') ? startDate : endDate}
-              mode={activePicker.endsWith('Date') ? 'date' : 'time'}
-              is24Hour={true}
-              display="default"
-              onChange={handlePickerChange}
-            />
-          )}
-
-          <Text variant="labelLarge" style={styles.sectionTitle}>Photos</Text>
-          <ScrollView horizontal style={styles.imageScroll}>
-            {images.map((img, index) => (
-              <View key={index} style={styles.imageWrapper}>
-                <Image source={{ uri: img.uri }} style={styles.imagePreview} />
-                <IconButton
-                  icon="close-circle"
-                  size={20}
-                  color="red"
-                  style={styles.removeIcon}
-                  onPress={() => removeImage(index)}
-                />
-              </View>
-            ))}
-            <TouchableOpacity style={[styles.addImage, { borderColor: theme.colors.primary }]} onPress={handlePickImage}>
-              <IconButton icon="camera-plus" color={theme.colors.primary} size={30} />
-              <Text variant="labelSmall" style={{ color: theme.colors.primary }}>Add</Text>
-            </TouchableOpacity>
-          </ScrollView>
+          <EventImagePicker
+            images={images}
+            onAddImages={assets => setImages(current => [...current, ...assets])}
+            onRemoveImage={index => {
+              const next = [...images];
+              next.splice(index, 1);
+              setImages(next);
+            }}
+          />
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -562,89 +308,9 @@ const styles = StyleSheet.create({
   searchSection: {
     marginBottom: spacing.lg,
   },
-  locationInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateTimeSection: {
-    marginBottom: spacing.md,
-  },
-  categorySection: {
-    marginBottom: spacing.md,
-  },
-  searchBar: {
-    elevation: elevation.low,
-  },
-  searchBarInput: {
-    flex: 1,
-  },
-  resultsCard: {
-    marginTop: spacing.xs,
-    maxHeight: 200,
-    elevation: elevation.mid,
-    zIndex: 1000,
-  },
-  selectedLocationBox: {
-    marginTop: 12,
-    flexDirection: 'row',
-  },
   input: {
     marginBottom: spacing.md,
   },
-  categoryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  categoryChip: {
-    marginBottom: spacing.sm,
-  },
-  sectionTitle: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  dateTimeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  dateTimeItem: {
-    flex: 0.48,
-  },
-  dateTimeButton: {
-    marginTop: spacing.xs,
-  },
-  durationRow: {
-    marginBottom: 12,
-  },
-  imageScroll: {
-    flexDirection: 'row',
-    marginTop: spacing.sm,
-  },
-  imageWrapper: {
-    position: 'relative',
-    marginRight: 10,
-  },
-  imagePreview: {
-    width: 100,
-    height: 100,
-    borderRadius: radius.sm,
-  },
-  removeIcon: {
-    position: 'absolute',
-    top: -10,
-    right: -10,
-  },
-  addImage: {
-    width: 100,
-    height: 100,
-    borderRadius: radius.sm,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-  }
 });
 
 export default CreateEventModal;
