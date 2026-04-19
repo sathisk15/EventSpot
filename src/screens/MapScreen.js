@@ -368,25 +368,22 @@ const MapScreen = ({navigation, route}) => {
   const recenterMap = async () => {
     if (!webViewRef.current) return;
 
+    if (location) {
+      postMapMessage({
+        type: 'UPDATE_LOCATION',
+        lat: location.latitude,
+        lng: location.longitude,
+      });
+      return;
+    }
+
     setIsRecentering(true);
     try {
       const newLoc = await getDeviceCoordinates();
       updateMapLocation(newLoc);
     } catch (error) {
       console.error('Recenter error:', error);
-      if (location) {
-        postMapMessage({
-          type: 'UPDATE_LOCATION',
-          lat: location.latitude,
-          lng: location.longitude,
-        });
-        Alert.alert(
-          'Location Unavailable',
-          'Unable to refresh your live location. The map stayed on your last known position.',
-        );
-      } else {
-        Alert.alert('Location Error', error.message);
-      }
+      Alert.alert('Location Error', error.message);
     } finally {
       setIsRecentering(false);
     }
