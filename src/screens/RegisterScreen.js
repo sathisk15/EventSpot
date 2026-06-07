@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Image } from 'react-native';
 import { Text, TextInput, Button, useTheme, HelperText, Surface } from 'react-native-paper';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -91,11 +91,11 @@ const RegisterScreen = ({ navigation }) => {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <Surface style={[styles.logoBadge, { backgroundColor: theme.colors.secondaryContainer }]} elevation={0}>
-          <Text variant="labelLarge" style={{ color: theme.colors.onSecondaryContainer }}>
-            New Account
-          </Text>
-        </Surface>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>
           Join EventSpot
         </Text>
@@ -188,10 +188,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  logoBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
+  logoImage: {
+    width: 90,
+    height: 90,
+    borderRadius: radius.md,
     marginBottom: spacing.md,
   },
   title: {

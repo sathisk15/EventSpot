@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Image } from 'react-native';
 import { Text, TextInput, Button, useTheme, HelperText, Surface } from 'react-native-paper';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -93,9 +93,11 @@ const LoginScreen = ({ navigation }) => {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <Surface style={[styles.logoSurface, { backgroundColor: theme.colors.primary }]} elevation={4}>
-          <Text style={styles.logoText}>ES</Text>
-        </Surface>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>
           EventSpot
         </Text>
@@ -188,18 +190,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  logoSurface: {
-    width: 64,
-    height: 64,
+  logoImage: {
+    width: 90,
+    height: 90,
     borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: spacing.md,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
   },
   title: {
     fontWeight: 'bold',
