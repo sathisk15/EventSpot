@@ -48,3 +48,5 @@ yarn-error.*
 # Claude Code
 CLAUDE.md
 .claude/
+
+Event photos/
