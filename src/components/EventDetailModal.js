@@ -1,24 +1,26 @@
 import React from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  Image, 
-  Dimensions 
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Dimensions
 } from 'react-native';
-import { 
-  Portal, 
-  Modal, 
-  Text, 
-  Button, 
-  useTheme, 
-  Appbar, 
-  Avatar, 
+import {
+  Portal,
+  Modal,
+  Text,
+  Button,
+  useTheme,
+  Appbar,
+  Avatar,
   Chip,
   Divider
 } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius } from '../config/theme';
+import GradientButton from './common/GradientButton';
 
 const { width } = Dimensions.get('window');
 
@@ -90,10 +92,18 @@ const EventDetailModal = ({
         onDismiss={onDismiss} 
         contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}
       >
-        <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
-          <Appbar.Action icon="close" onPress={onDismiss} />
-          <Appbar.Content title="Event Details" />
-        </Appbar.Header>
+        <View style={styles.appbarWrapper}>
+          <LinearGradient
+            colors={['#6A3FF5', '#E84DBB', '#1F8FFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <Appbar.Header style={styles.appbarTransparent}>
+            <Appbar.Action icon="close" onPress={onDismiss} iconColor="#FFFFFF" />
+            <Appbar.Content title="Event Details" titleStyle={styles.appbarTitle} />
+          </Appbar.Header>
+        </View>
 
         <ScrollView>
           {event.images && event.images.length > 0 && (
@@ -179,15 +189,23 @@ const EventDetailModal = ({
                 Delete Event
               </Button>
             </View>
-          ) : (
+          ) : isInterested ? (
             <Button
-              mode={isInterested ? 'outlined' : 'contained'}
+              mode="outlined"
               style={styles.joinButton}
               loading={interestLoading}
               disabled={interestLoading}
-              onPress={() => onToggleInterest?.(event, !isInterested)}>
-              {isInterested ? 'Interested' : "I'm Interested"}
+              onPress={() => onToggleInterest?.(event, false)}>
+              Interested ✓
             </Button>
+          ) : (
+            <GradientButton
+              onPress={() => onToggleInterest?.(event, true)}
+              loading={interestLoading}
+              disabled={interestLoading}
+              style={styles.joinButton}>
+              I'm Interested
+            </GradientButton>
           )}
         </View>
       </Modal>
@@ -200,6 +218,17 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 0,
     justifyContent: 'flex-start',
+  },
+  appbarWrapper: {
+    overflow: 'hidden',
+  },
+  appbarTransparent: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+  },
+  appbarTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   imageGallery: {
     height: 250,

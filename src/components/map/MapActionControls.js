@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Portal, useTheme } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme as appTheme, spacing, radius, elevation } from '../../config/theme';
 
 const MapActionControls = ({
@@ -37,9 +38,15 @@ const MapActionControls = ({
           <Text style={styles.actionLabel}>My Events</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, styles.primaryActionButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles.actionButton, styles.primaryActionButton, styles.gradientWrapper]}
           onPress={onAddEvent}>
-          <Text style={[styles.actionLabel, { color: theme.colors.onPrimary || '#FFFFFF' }]}>
+          <LinearGradient
+            colors={['#6A3FF5', '#E84DBB', '#1F8FFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientFill}
+          />
+          <Text style={[styles.actionLabel, { color: '#FFFFFF' }]}>
             Add Event
           </Text>
         </TouchableOpacity>
@@ -101,6 +108,13 @@ const styles = StyleSheet.create({
   },
   primaryActionButton: {
     flex: 1.15,
+  },
+  gradientWrapper: {
+    overflow: 'hidden',
+  },
+  gradientFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.md,
   },
   actionLabel: {
     fontSize: 13,

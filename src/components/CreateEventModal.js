@@ -8,6 +8,7 @@ import {
   Portal,
   Modal,
 } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { spacing } from '../config/theme';
 import {
@@ -215,13 +216,24 @@ const CreateEventModal = ({ visible, onDismiss, onSave, initialLocation, initial
         onDismiss={onDismiss}
         contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}
       >
-        <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
-          <Appbar.Action icon="close" onPress={onDismiss} />
-          <Appbar.Content title={initialEvent ? 'Edit Event' : 'Create Event'} />
-          <Button mode="text" onPress={handleSave} loading={loading} disabled={loading}>
-            {initialEvent ? 'Update' : 'Save'}
-          </Button>
-        </Appbar.Header>
+        <View style={styles.appbarWrapper}>
+          <LinearGradient
+            colors={['#6A3FF5', '#E84DBB', '#1F8FFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <Appbar.Header style={styles.appbarTransparent}>
+            <Appbar.Action icon="close" onPress={onDismiss} iconColor="#FFFFFF" />
+            <Appbar.Content
+              title={initialEvent ? 'Edit Event' : 'Create Event'}
+              titleStyle={styles.appbarTitle}
+            />
+            <Button mode="text" onPress={handleSave} loading={loading} disabled={loading} textColor="#FFFFFF">
+              {initialEvent ? 'Update' : 'Save'}
+            </Button>
+          </Appbar.Header>
+        </View>
 
         <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
           <View style={styles.searchSection}>
@@ -301,6 +313,17 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 0,
     justifyContent: 'flex-start',
+  },
+  appbarWrapper: {
+    overflow: 'hidden',
+  },
+  appbarTransparent: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+  },
+  appbarTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   form: {
     padding: spacing.md,

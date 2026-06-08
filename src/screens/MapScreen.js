@@ -5,7 +5,9 @@ import {
   Alert,
   TouchableOpacity,
   Keyboard,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Text,
   Appbar,
@@ -390,27 +392,40 @@ const MapScreen = ({navigation, route}) => {
 
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <Appbar.Header elevated style={{backgroundColor: theme.colors.surface}}>
-        <Appbar.Content
-          title="EventSpot"
-          titleStyle={{fontWeight: 'bold', color: theme.colors.primary}}
+      <View style={styles.appbarWrapper}>
+        <LinearGradient
+          colors={['#6A3FF5', '#E84DBB', '#1F8FFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFillObject}
         />
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={styles.avatarContainer}>
-          {user?.photoURL ? (
-            <Avatar.Image size={36} source={{uri: user.photoURL}} />
-          ) : (
-            <Avatar.Text
-              size={36}
-              label={getInitials()}
-              style={{backgroundColor: theme.colors.primary}}
-              color={theme.colors.onPrimary}
-            />
-          )}
-          <View style={styles.onlineIndicator} />
-        </TouchableOpacity>
-      </Appbar.Header>
+        <Appbar.Header style={styles.appbarTransparent}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.appbarLogo}
+            resizeMode="contain"
+          />
+          <Appbar.Content
+            title="EventSpot"
+            titleStyle={styles.appbarTitle}
+          />
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.avatarContainer}>
+            {user?.photoURL ? (
+              <Avatar.Image size={36} source={{uri: user.photoURL}} />
+            ) : (
+              <Avatar.Text
+                size={36}
+                label={getInitials()}
+                style={styles.avatarText}
+                color="#FFFFFF"
+              />
+            )}
+            <View style={styles.onlineIndicator} />
+          </TouchableOpacity>
+        </Appbar.Header>
+      </View>
 
       <View
         testID="map-search-container"
@@ -540,6 +555,21 @@ const MapScreen = ({navigation, route}) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  appbarWrapper: {
+    overflow: 'hidden',
+  },
+  appbarTransparent: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+  },
+  appbarTitle: {
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontSize: 20,
+    letterSpacing: 0.3,
+  },
+  appbarLogo: { width: 32, height: 32, borderRadius: 9, marginLeft: 12, marginRight: 4 },
+  avatarText: { backgroundColor: 'rgba(255,255,255,0.25)' },
   searchContainer: {
     position: 'absolute',
     top: 88,
@@ -563,9 +593,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#22C55E',
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: 'rgba(255,255,255,0.9)',
   },
 });
 

@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Appbar, Button, Card, Chip, Text, useTheme } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { AuthContext } from '../contexts/AuthContext';
 import CreateEventModal from '../components/CreateEventModal';
@@ -142,11 +143,19 @@ const MyEventsScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header elevated>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="My Events" />
-        <Appbar.Action icon="home" onPress={() => navigation.navigate('Map')} />
-      </Appbar.Header>
+      <View style={styles.appbarWrapper}>
+        <LinearGradient
+          colors={['#6A3FF5', '#E84DBB', '#1F8FFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <Appbar.Header style={styles.appbarTransparent}>
+          <Appbar.BackAction onPress={() => navigation.goBack()} iconColor="#FFFFFF" />
+          <Appbar.Content title="My Events" titleStyle={styles.appbarTitle} />
+          <Appbar.Action icon="home" onPress={() => navigation.navigate('Map')} iconColor="#FFFFFF" />
+        </Appbar.Header>
+      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
@@ -248,6 +257,17 @@ const MyEventsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  appbarWrapper: {
+    overflow: 'hidden',
+  },
+  appbarTransparent: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+  },
+  appbarTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   content: {
     padding: spacing.md,

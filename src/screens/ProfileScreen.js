@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Text,
   TextInput,
@@ -208,11 +209,19 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header elevated>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Profile & Settings" />
-        <Appbar.Action icon="home" onPress={() => navigation.navigate('Map')} />
-      </Appbar.Header>
+      <View style={styles.appbarWrapper}>
+        <LinearGradient
+          colors={['#6A3FF5', '#E84DBB', '#1F8FFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <Appbar.Header style={styles.appbarTransparent}>
+          <Appbar.BackAction onPress={() => navigation.goBack()} iconColor="#FFFFFF" />
+          <Appbar.Content title="Profile & Settings" titleStyle={styles.appbarTitle} />
+          <Appbar.Action icon="home" onPress={() => navigation.navigate('Map')} iconColor="#FFFFFF" />
+        </Appbar.Header>
+      </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -390,6 +399,17 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
+  appbarWrapper: {
+    overflow: 'hidden',
+  },
+  appbarTransparent: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+  },
+  appbarTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   content: {
     padding: spacing.lg,
     paddingBottom: 80,

@@ -1,22 +1,26 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { Text, TextInput, Button, useTheme, HelperText, Surface } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Image, Dimensions } from 'react-native';
+import { Text, TextInput, Button, HelperText } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthContext } from '../contexts/AuthContext';
 import { spacing, radius } from '../config/theme';
+import GradientButton from '../components/common/GradientButton';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [firebaseError, setFirebaseError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register, loginWithGoogle } = useContext(AuthContext);
-  const theme = useTheme();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -25,8 +29,7 @@ const RegisterScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (response?.type === 'success') {
-      const { id_token } = response.params;
-      handleGoogleLogin(id_token);
+      handleGoogleLogin(response.params.id_token);
     }
   }, [response]);
 
@@ -87,35 +90,49 @@ const RegisterScreen = ({ navigation }) => {
 
   return (
     <ScrollView
-      contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={styles.root}
+      contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <Image
-          source={require('../../assets/icon.png')}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>
-          Join EventSpot
-        </Text>
-        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
-          Create an account to get started
-        </Text>
-      </View>
+      <LinearGradient
+        colors={['#1F8FFF', '#E84DBB', '#6A3FF5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.hero, { height: SCREEN_HEIGHT * 0.32 }]}
+      >
+        <View style={styles.circle1} />
+        <View style={styles.circle2} />
+        <View style={styles.heroContent}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logoImage}
+              resizeMode="cover"
+            />
+          </View>
+          <Text style={styles.heroTitle}>Join EventSpot</Text>
+          <Text style={styles.heroSubtitle}>Create your account today</Text>
+        </View>
+      </LinearGradient>
 
-      <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Create account</Text>
+        <Text style={styles.cardSubtitle}>Fill in your details to get started</Text>
+
         <TextInput
           mode="outlined"
-          label="Email"
+          label="Email address"
           value={email}
           onChangeText={(text) => { setEmail(text); setEmailError(''); setFirebaseError(''); }}
           autoCapitalize="none"
           keyboardType="email-address"
           style={styles.input}
           error={!!emailError}
+          outlineStyle={styles.inputOutline}
+          left={<TextInput.Icon icon="email-outline" />}
         />
-        <HelperText type="error" visible={!!emailError}>
+        <HelperText type="error" visible={!!emailError} style={styles.helperText}>
           {emailError}
         </HelperText>
 
@@ -124,99 +141,192 @@ const RegisterScreen = ({ navigation }) => {
           label="Password"
           value={password}
           onChangeText={(text) => { setPassword(text); setPasswordError(''); setFirebaseError(''); }}
-          secureTextEntry
+          secureTextEntry={!passwordVisible}
           style={styles.input}
           error={!!passwordError}
+          outlineStyle={styles.inputOutline}
+          left={<TextInput.Icon icon="lock-outline" />}
+          right={
+            <TextInput.Icon
+              icon={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+              onPress={() => setPasswordVisible(v => !v)}
+            />
+          }
         />
-        <HelperText type="error" visible={!!passwordError}>
+        <HelperText type="error" visible={!!passwordError} style={styles.helperText}>
           {passwordError}
         </HelperText>
 
-        <HelperText type="error" visible={!!firebaseError} style={styles.firebaseError}>
-          {firebaseError}
-        </HelperText>
+        {!!firebaseError && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{firebaseError}</Text>
+          </View>
+        )}
 
-        <Button
-          mode="contained"
+        <GradientButton
           onPress={handleRegister}
-          style={styles.primaryButton}
-          contentStyle={styles.buttonContent}
           loading={loading}
           disabled={loading}
+          style={styles.primaryButton}
         >
           Create Account
-        </Button>
+        </GradientButton>
 
         <View style={styles.dividerRow}>
-          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginHorizontal: spacing.sm }}>
-            or
-          </Text>
-          <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or continue with</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         <Button
           mode="outlined"
           icon="google"
-          style={styles.googleButton}
-          contentStyle={styles.buttonContent}
           onPress={() => promptAsync()}
           disabled={!request || loading}
+          style={styles.googleButton}
+          contentStyle={styles.googleButtonContent}
+          labelStyle={styles.googleButtonLabel}
         >
-          Continue with Google
+          Google
         </Button>
-      </Surface>
+      </View>
 
-      <Button
-        mode="text"
-        onPress={() => navigation.navigate('Login')}
-        style={styles.switchButton}
-      >
-        Already have an account? Login
-      </Button>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Already have an account?</Text>
+        <Button
+          mode="text"
+          onPress={() => navigation.navigate('Login')}
+          labelStyle={styles.footerLink}
+          compact
+        >
+          Sign In
+        </Button>
+      </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#F8F9FF',
+  },
   container: {
     flexGrow: 1,
-    padding: spacing.lg,
-    justifyContent: 'center',
+    backgroundColor: '#F8F9FF',
   },
-  header: {
+  hero: {
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    overflow: 'hidden',
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
+  },
+  heroContent: {
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
   },
   logoImage: {
-    width: 90,
-    height: 90,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
+    width: '100%',
+    height: '100%',
   },
-  title: {
-    fontWeight: 'bold',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+    marginBottom: 5,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.2,
+  },
+  circle1: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    top: -50,
+    left: -30,
+    zIndex: 1,
+  },
+  circle2: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -20,
+    right: 20,
+    zIndex: 1,
   },
   card: {
-    borderRadius: radius.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: -spacing.xl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.xl,
     padding: spacing.lg,
+    paddingTop: spacing.xl,
+    shadowColor: '#6A3FF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1D29',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#667085',
     marginBottom: spacing.md,
   },
   input: {
-    marginBottom: spacing.xs,
+    marginBottom: 0,
+    backgroundColor: '#FFFFFF',
   },
-  firebaseError: {
-    textAlign: 'center',
+  inputOutline: {
+    borderRadius: 12,
+    borderColor: '#E4E7EC',
+  },
+  helperText: {
+    marginTop: -2,
+    marginBottom: 2,
+  },
+  errorBanner: {
+    backgroundColor: '#FFF0EE',
+    borderRadius: 12,
+    padding: spacing.sm,
     marginBottom: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: '#EA4335',
+  },
+  errorBannerText: {
+    color: '#EA4335',
+    fontSize: 13,
   },
   primaryButton: {
     marginTop: spacing.sm,
-    borderRadius: radius.sm,
-  },
-  buttonContent: {
-    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -226,12 +336,40 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
+    backgroundColor: '#E4E7EC',
+  },
+  dividerText: {
+    color: '#98A2B3',
+    fontSize: 13,
+    marginHorizontal: spacing.sm,
   },
   googleButton: {
-    borderRadius: radius.sm,
+    borderRadius: 14,
+    borderColor: '#E4E7EC',
+    borderWidth: 1.5,
   },
-  switchButton: {
-    alignSelf: 'center',
+  googleButtonContent: {
+    paddingVertical: spacing.sm,
+  },
+  googleButtonLabel: {
+    color: '#1A1D29',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  footerText: {
+    color: '#667085',
+    fontSize: 14,
+  },
+  footerLink: {
+    color: '#6A3FF5',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 
