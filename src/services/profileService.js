@@ -3,31 +3,31 @@ import { updateProfile } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 export const uploadProfileImage = async (uid, uri) => {
-  const bucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  const path = `profiles/${uid}.jpg`;
-  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${encodeURIComponent(path)}`;
-
-  const idToken = await auth.currentUser.getIdToken();
+  const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
 
   const uploadResult = await FileSystem.uploadAsync(url, uri, {
     httpMethod: 'POST',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-      'Content-Type': 'image/jpeg',
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    fieldName: 'file',
+    parameters: {
+      upload_preset: uploadPreset,
+      folder: 'profiles',
+      public_id: uid,
     },
   });
 
   if (uploadResult.status !== 200) {
-    throw new Error(`Upload failed with status: ${uploadResult.status} - ${uploadResult.body}`);
+    throw new Error(`Upload failed with status: ${uploadResult.status}`);
   }
 
   const responseData = JSON.parse(uploadResult.body);
-  const downloadToken = responseData.downloadTokens;
+  if (!responseData.secure_url) {
+    throw new Error('Upload succeeded but no URL was returned');
+  }
 
-  const photoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${downloadToken}`;
-
+  const photoURL = responseData.secure_url;
   await updateProfile(auth.currentUser, { photoURL });
-
   return photoURL;
 };
