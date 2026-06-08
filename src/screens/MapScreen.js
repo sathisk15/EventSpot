@@ -52,6 +52,7 @@ const MapScreen = ({navigation, route}) => {
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRecentering, setIsRecentering] = useState(false);
+  const [webViewReady, setWebViewReady] = useState(false);
 
   // Events state
   const [events, setEvents] = useState([]);
@@ -117,6 +118,15 @@ const MapScreen = ({navigation, route}) => {
       unsubscribe?.();
     };
   }, [realtimeEventsEnabled]);
+
+  useEffect(() => {
+    if (!webViewReady || !location) return;
+    postMapMessage({
+      type: 'UPDATE_LOCATION',
+      lat: location.latitude,
+      lng: location.longitude,
+    });
+  }, [location, webViewReady]);
 
   useEffect(() => {
     if (!webViewRef.current) {
@@ -459,12 +469,7 @@ const MapScreen = ({navigation, route}) => {
       </View>
 
       <View style={styles.content}>
-        {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator animating={true} color={theme.colors.primary} size="large" />
-            <Text style={{marginTop: 10}}>Mapping your world...</Text>
-          </View>
-        ) : errorMsg ? (
+        {errorMsg ? (
           <View style={styles.centerBox}>
             <Text
               variant="titleMedium"
@@ -473,7 +478,7 @@ const MapScreen = ({navigation, route}) => {
             </Text>
             <FAB icon="refresh" style={{marginTop: 20}} onPress={loadInitialData} label="Retry" />
           </View>
-        ) : location ? (
+        ) : (
           <>
             <WebView
               ref={webViewRef}
@@ -483,24 +488,13 @@ const MapScreen = ({navigation, route}) => {
               javaScriptEnabled={true}
               scrollEnabled={false}
               mixedContentMode="always"
+              cacheEnabled={true}
+              androidHardwareAccelerationDisabled={false}
               onMessage={event => {
                 const data = JSON.parse(event.nativeEvent.data);
                 if (data.type === 'READY') {
-                  if (location) {
-                    webViewRef.current?.postMessage(
-                      JSON.stringify({
-                        type: 'UPDATE_LOCATION',
-                        lat: location.latitude,
-                        lng: location.longitude,
-                      }),
-                    );
-                  }
-                  webViewRef.current?.postMessage(
-                    JSON.stringify({
-                      type: 'SET_EVENTS',
-                      events: filteredEvents,
-                    }),
-                  );
+                  setWebViewReady(true);
+                  postMapMessage({ type: 'SET_EVENTS', events: filteredEvents });
                 } else if (data.type === 'EVENT_CLICK') {
                   const ev = events.find(e => e.id === data.id);
                   if (ev) {
@@ -513,6 +507,13 @@ const MapScreen = ({navigation, route}) => {
               }}
             />
 
+            {loading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator animating={true} color={theme.colors.primary} size="large" />
+                <Text style={{marginTop: 10}}>Mapping your world...</Text>
+              </View>
+            )}
+
             {showMapChrome ? (
               <MapActionControls
                 onZoomIn={() => zoomMap('ZOOM_IN')}
@@ -524,7 +525,7 @@ const MapScreen = ({navigation, route}) => {
               />
             ) : null}
           </>
-        ) : null}
+        )}
       </View>
 
       <CreateEventModal
@@ -579,6 +580,12 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1, position: 'relative' },
   centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FF',
+  },
   map: { flex: 1 },
   avatarContainer: {
     marginRight: spacing.md,
