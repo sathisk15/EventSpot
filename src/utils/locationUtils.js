@@ -35,15 +35,22 @@ export const getDeviceCoordinates = async () => {
     throw new Error('Location services are disabled.');
   }
 
-  let currentLocation = null;
-
-  try {
-    currentLocation = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-  } catch (error) {
-    currentLocation = await Location.getLastKnownPositionAsync({});
+  // Use last known position immediately if available — avoids waiting for a fresh GPS fix
+  const lastKnown = await Location.getLastKnownPositionAsync({});
+  if (lastKnown?.coords) {
+    return {
+      latitude: lastKnown.coords.latitude,
+      longitude: lastKnown.coords.longitude,
+    };
   }
+
+  // No cached position — wait for a fresh fix with a 10s timeout
+  const currentLocation = await Promise.race([
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Location timeout')), 10000),
+    ),
+  ]).catch(() => null);
 
   if (!currentLocation?.coords) {
     throw new Error('Unable to determine your current location.');

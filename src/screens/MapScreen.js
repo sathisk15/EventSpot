@@ -217,9 +217,11 @@ const MapScreen = ({navigation, route}) => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      const loc = await getDeviceCoordinates();
+      const [loc] = await Promise.all([
+        getDeviceCoordinates(),
+        refreshEvents(),
+      ]);
       setLocation(loc);
-      await refreshEvents();
     } catch (error) {
       console.error('Initialization error:', error);
       if (error.message === 'Location permission is required to center the map.') {
