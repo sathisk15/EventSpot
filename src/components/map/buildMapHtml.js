@@ -212,6 +212,10 @@ const buildMapHtml = (primaryColor, secondaryColor) => `
             if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
             map.setView([data.lat, data.lng], 15);
             userMarker.setLatLng([data.lat, data.lng]);
+          } else if (data.type === 'PAN_TO') {
+            if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+            tempMarker = L.marker([data.lat, data.lng], { opacity: 0.6 }).addTo(map);
+            map.setView([data.lat, data.lng], 15);
           } else if (data.type === 'ZOOM_IN') {
             map.zoomIn();
           } else if (data.type === 'ZOOM_OUT') {

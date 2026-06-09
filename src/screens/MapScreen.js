@@ -218,10 +218,18 @@ const MapScreen = ({navigation, route}) => {
     setLoading(true);
     try {
       const [loc] = await Promise.all([
-        getDeviceCoordinates(),
+        getDeviceCoordinates().catch(err => {
+          if (
+            err.message === 'Location permission is required to center the map.' ||
+            err.message === 'Location services are disabled.'
+          ) {
+            throw err;
+          }
+          return null;
+        }),
         refreshEvents(),
       ]);
-      setLocation(loc);
+      if (loc) setLocation(loc);
     } catch (error) {
       console.error('Initialization error:', error);
       if (error.message === 'Location permission is required to center the map.') {
@@ -276,20 +284,15 @@ const MapScreen = ({navigation, route}) => {
       address: item.display_name,
     };
 
-    setLocation(newLoc);
     setShowResults(false);
     setSearchQuery(item.display_name);
     Keyboard.dismiss();
 
-    if (webViewRef.current) {
-      webViewRef.current.postMessage(
-        JSON.stringify({
-          type: 'UPDATE_LOCATION',
-          lat: newLoc.latitude,
-          lng: newLoc.longitude,
-        }),
-      );
-    }
+    postMapMessage({ type: 'PAN_TO', lat: newLoc.latitude, lng: newLoc.longitude });
+
+    setEditingEvent(null);
+    setModalInitialLocation(newLoc);
+    setModalVisible(true);
   };
 
   const recenterMap = async () => {
@@ -309,8 +312,8 @@ const MapScreen = ({navigation, route}) => {
       const newLoc = await getDeviceCoordinates();
       updateMapLocation(newLoc);
     } catch (error) {
-      console.error('Recenter error:', error);
-      Alert.alert('Location Error', error.message);
+      console.warn('Recenter: GPS unavailable:', error.message);
+      Alert.alert('Location Unavailable', 'GPS signal not found. Make sure location services are enabled and try again.');
     } finally {
       setIsRecentering(false);
     }
