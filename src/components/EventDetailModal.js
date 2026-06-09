@@ -4,7 +4,9 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  Dimensions
+  Dimensions,
+  Linking,
+  Platform,
 } from 'react-native';
 import {
   Portal,
@@ -85,6 +87,25 @@ const EventDetailModal = ({
       event.attendees.includes(currentUserId),
   );
 
+  const openInMaps = () => {
+    const lat = event.location?.latitude;
+    const lng = event.location?.longitude;
+    if (!lat || !lng) return;
+
+    const label = encodeURIComponent(event.location?.address || 'Event Location');
+    const nativeUrl = Platform.select({
+      ios: `maps://app?daddr=${lat},${lng}&q=${label}`,
+      android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
+    });
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    Linking.canOpenURL(nativeUrl)
+      .then(supported => Linking.openURL(supported ? nativeUrl : fallbackUrl))
+      .catch(() => Linking.openURL(fallbackUrl));
+  };
+
+  const hasCoordinates = Boolean(event.location?.latitude && event.location?.longitude);
+
   return (
     <Portal>
       <Modal 
@@ -158,7 +179,18 @@ const EventDetailModal = ({
 
             <Text variant="titleMedium" style={styles.sectionLabel}>Location</Text>
             <View style={styles.locationBox}>
-              <Chip icon="map-marker" mode="outlined">{event.location?.address || 'View on Map'}</Chip>
+              <Chip
+                icon="map-marker"
+                mode="outlined"
+                onPress={hasCoordinates ? openInMaps : undefined}
+                closeIcon={hasCoordinates ? 'directions' : undefined}
+                onClose={hasCoordinates ? openInMaps : undefined}
+              >
+                {event.location?.address || 'View on Map'}
+              </Chip>
+              {hasCoordinates && (
+                <Text variant="labelSmall" style={styles.directionHint}>Tap to get directions</Text>
+              )}
             </View>
           </View>
           
@@ -275,6 +307,11 @@ const styles = StyleSheet.create({
   },
   locationBox: {
     marginTop: spacing.xs,
+  },
+  directionHint: {
+    marginTop: 4,
+    marginLeft: 4,
+    opacity: 0.5,
   },
   footer: {
     padding: spacing.md,
